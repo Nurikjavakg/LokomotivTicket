@@ -3,12 +3,7 @@ from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator
 import uuid
 
-class Role(models.TextChoices):
-    CASIER = 'CASIER', 'Кассир'
-    OPERATOR = 'OPERATOR', 'Оператор'
-    ADMIN = 'ADMIN', 'Админ'
-    CLIENT = 'CLIENT', 'КЛИЕНТ'
-    EMPLOYEE = 'EMPLOYEE', 'Сотрудник'
+
 
 class TariffType(models.TextChoices):
     ADULT = 'ADULT', 'Взрослый'
@@ -19,25 +14,6 @@ class PaymentStatus(models.TextChoices):
     COMPLETED = 'COMPLETED', 'Завершено'
     REFUNDED = 'REFUNDED', 'Возвращено'  
 
-class User(AbstractUser):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20)
-    role = models.CharField(
-        max_length=10,
-        choices=Role.choices,
-        default=Role.CLIENT
-    )
-     # Remove the original fields we're replacing
-    username = None
-    
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
-    
-    def __str__(self):
-        return f"{self.first_name} {self.last_name} ({self.email})"
     
 class Payment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
