@@ -5,7 +5,7 @@ from django.db import models
 
 
 class Role(models.TextChoices):
-    CASIER = 'CASIER', 'Кассир'
+    CASHIER = 'CASHIER', 'Кассир'
     OPERATOR = 'OPERATOR', 'Оператор'
     ADMIN = 'ADMIN', 'Админ'
     CLIENT = 'CLIENT', 'КЛИЕНТ'
@@ -22,10 +22,12 @@ class User(AbstractUser):
         default=Role.CLIENT
     )
 
-    def __str__(self):
-        return f"{self.username} ({self.role})"
+    @classmethod
+    def create_superuser(cls, username, email, password, **extra_fields):
+        extra_fields.setdefault('role', Role.ADMIN)
+        return super().create_superuser(username, email, password, **extra_fields)
     
-    
+
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
