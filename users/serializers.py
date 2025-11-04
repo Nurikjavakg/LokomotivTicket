@@ -5,7 +5,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'phone', 'role', 'first_name', 'last_name')
+        fields = ('id', 'username', 'email', 'phone_number', 'role', 'first_name', 'last_name')
         read_only_fields = ('id', 'role')
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -14,7 +14,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'phone', 'password', 'password_confirm', 'first_name', 'last_name')
+        fields = ('username', 'email', 'phone_number', 'password', 'password_confirm', 'first_name', 'last_name')
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -25,3 +25,15 @@ class RegisterSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(**validated_data)
         return user   
+    
+class AdminUserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, validators =[validate_password])
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'phone_number', 'password', 'first_name', 'last_name', 'role')
+    
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+
+        return user
