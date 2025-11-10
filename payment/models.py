@@ -69,8 +69,9 @@ class Payment(models.Model):
     ticket_number = models.CharField(max_length=10, blank=True)  # Номер талона Л1, Л4 и т.д.
     is_employee = models.BooleanField(default=False)
     employee_name = models.CharField(max_length=255, blank=True)
+    department_name = models.CharField(max_length=150, null=True, blank=True)
+    position_name = models.CharField(max_length=150, null=True, blank=True)
     skating_status = models.CharField(max_length=20, choices=SessionStatus.choices, default=SessionStatus.WAITING)
-    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
