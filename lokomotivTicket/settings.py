@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'admin_panel',
     'users',
     'payment',
+    'drf_yasg', 
 ]
 AUTH_USER_MODEL = 'users.User'
 
@@ -72,6 +73,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'lokomotivTicket.wsgi.application'
+SWAGGER_SETTINGS = {
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',  
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'Введите: Bearer <ваш_jwt_токен>'
+        }
+    },
+    'USE_SESSION_AUTH': False,
+}
 
 
 # Database
