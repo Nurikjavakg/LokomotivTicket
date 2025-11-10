@@ -12,19 +12,10 @@ class PositionSerializer(serializers.ModelSerializer):
         model = Position
         fields = ['id', 'name']
 
-class DepartmentPositionSerializer(serializers.Serializer):
-    """
-    Serializer для добавления одновременно Departments и Positions
-    """
-    departments = serializers.ListField(
-        child=serializers.CharField(max_length=255),
-        required=False
-    )
-    positions = serializers.ListField(
-        child=serializers.CharField(max_length=255),
-        required=False
-    )
-    
+class DepartmentPositionCreateSerializer(serializers.Serializer):
+    department_name = serializers.CharField(required=False, allow_blank=True)
+    position_name = serializers.CharField(required=False, allow_blank=True)
+
 class PaymentConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentConfiguration

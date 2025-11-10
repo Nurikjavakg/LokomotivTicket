@@ -16,10 +16,23 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from admin_panel.views import (
+    DepartmentPositionViewSet,
+    DepartmentPositionAutocompleteViewSet,
+    PaymentConfigurationViewSet
+)
 
+# 1️⃣ сначала создаём router
+router = DefaultRouter()
+router.register(r'payment-config', PaymentConfigurationViewSet, basename='payment-config')
+router.register(r'departments-positions', DepartmentPositionViewSet, basename='departments-positions')
+router.register(r'autocomplete', DepartmentPositionAutocompleteViewSet, basename='autocomplete')
+
+# 2️⃣ потом подключаем его в urlpatterns
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/payment/', include('payment.urls')),
-    path('api/admin-panel/', include('admin_panel.urls')),
+    path('api/admin-panel/', include(router.urls)),
 ]

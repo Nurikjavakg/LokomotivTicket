@@ -46,7 +46,6 @@ class PaymentConfiguration(models.Model):
         return obj
 
 class Payment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     date = models.DateTimeField(auto_now_add=True)
@@ -63,6 +62,9 @@ class Payment(models.Model):
     ticket_number = models.CharField(max_length=10, blank=True)  # Номер талона Л1, Л4 и т.д.
     is_employee = models.BooleanField(default=False)
     employee_name = models.CharField(max_length=255, blank=True)
+    # Новые поля для department и position
+    department_name = models.CharField(max_length=150, null=True, blank=True)
+    position_name = models.CharField(max_length=150, null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

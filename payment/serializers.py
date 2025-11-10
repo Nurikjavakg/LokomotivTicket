@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from .models import Payment, SessionSkating
-from users.models import User
+from .models import Payment
 
 class PaymentSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
@@ -22,17 +21,11 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             'amount_adult', 'amount_child', 'hours', 'skate_rental',
-            'instructor_service', 'ticket_number', 'is_employee', 'employee_name'
+            'instructor_service', 'ticket_number', 'is_employee', 'employee_name',
+             'department_name', 'position_name'
         ]
     
     def validate(self, data):
         if data['is_employee'] and not data.get('employee_name'):
             raise serializers.ValidationError("Employee name is required for employee payments")
         return data
-
-class SessionSkatingSerializer(serializers.ModelSerializer):
-    payment = serializers.StringRelatedField()
-
-    class Meta:
-        model = SessionSkating
-        fields = '__all__'    
