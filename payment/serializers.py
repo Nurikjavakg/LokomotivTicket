@@ -23,7 +23,8 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             'amount_adult', 'amount_child', 'hours', 'skate_rental',
-            'instructor_service', 'ticket_number', 'is_employee', 'employee_name'
+            'instructor_service', 'ticket_number', 'is_employee', 'employee_name',
+             'department_name', 'position_name'
         ]
     
     def validate(self, data):
@@ -95,6 +96,3 @@ class ReportSerializer(serializers.ModelSerializer):
         
     def get_session_duration(self, obj):
         return f"{obj.hours} ч"
-
-
-
