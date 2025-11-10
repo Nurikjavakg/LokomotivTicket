@@ -17,6 +17,12 @@ class PaymentStatus(models.TextChoices):
     REFUNDED = 'REFUNDED', 'Возвращено'
     FAILED = 'FAILED', 'Ошибка'
 
+class SessionStatus(models.TextChoices):
+    WAITING = 'WAITING', 'Ожидает'
+    IN_PROGRESS = 'IN_PROGRESS', 'В процессе'
+    TIME_EXPIRED= 'TIME_EXPIRED', 'Время вышло'
+    FINISHED = 'FINISHED', 'Завершен'
+
 class PaymentConfiguration(models.Model):
     adult_price_per_hour = models.DecimalField(max_digits=10, decimal_places=2, default=500)
     child_price_per_hour = models.DecimalField(max_digits=10, decimal_places=2, default=300)
@@ -46,7 +52,7 @@ class PaymentConfiguration(models.Model):
         return obj
 
 class Payment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.AutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payments')
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     date = models.DateTimeField(auto_now_add=True)
@@ -63,6 +69,7 @@ class Payment(models.Model):
     ticket_number = models.CharField(max_length=10, blank=True)  # Номер талона Л1, Л4 и т.д.
     is_employee = models.BooleanField(default=False)
     employee_name = models.CharField(max_length=255, blank=True)
+    skating_status = models.CharField(max_length=20, choices=SessionStatus.choices, default=SessionStatus.WAITING)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -75,27 +82,12 @@ class Payment(models.Model):
             self.cheque_code = f"CH{uuid.uuid4().hex[:8].upper()}"
         super().save(*args, **kwargs)
 
-class SessionSkating(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    payment = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='session')
-    date = models.DateField()
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
-    
-    def __str__(self):
-        return f"Session {self.date}"
-
-class SessionStatus(models.TextChoices):
-    PENDING = 'PENDING', 'Ожидает'
-    IN_PROGRESS = 'IN_PROGRESS', 'В процессе'
-    COMPLETED = 'COMPLETED', 'Завершен'
-    EXPIRED = 'EXPIRED', 'Истек'
 
 
 class SessionSkating(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.AutoField(primary_key=True)
     payment = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='session')
-    status = models.CharField(max_length=20, choices=SessionStatus.choices, default=SessionStatus.PENDING)
+    status = models.CharField(max_length=20, choices=SessionStatus.choices, default=SessionStatus.WAITING)
     date = models.DateField(default=timezone.now)
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
