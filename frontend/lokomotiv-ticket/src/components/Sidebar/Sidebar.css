@@ -1,0 +1,71 @@
+@import '../../App.css';
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  right: -300px;
+  width: 300px;
+  box-sizing: border-box;
+  height: 100vh;
+  background-color: var(--color-blue);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  transition: right 0.3s ease;
+  z-index: 999;
+}
+
+.sidebar.open {
+  right: 0;
+}
+
+.closeButton {
+  align-self: flex-end;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.menuItems {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0;
+  margin-top: 70px;
+}
+
+.menuItems a {
+  color: white;
+  text-decoration: none;
+  font-size: 24px;
+}
+
+.menuItems a:hover {
+  opacity: 0.8;
+}
+
+.logout {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
+  margin-left: auto;
+  margin-top: auto;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: white;
+}
+
+.logout span {
+  font-size: 20px;
+}
+
+.logoutIcon {
+  margin-left: 10px;
+  margin-top: 3px;
+  width: 32px;
+  height: 32px;
+}

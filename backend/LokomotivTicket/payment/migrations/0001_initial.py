@@ -1,0 +1,74 @@
+import django.core.validators
+import django.db.models.deletion
+import django.utils.timezone
+import uuid
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    initial = True
+
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='PaymentConfiguration',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('adult_price_per_hour', models.DecimalField(decimal_places=2, default=500, max_digits=10)),
+                ('child_price_per_hour', models.DecimalField(decimal_places=2, default=300, max_digits=10)),
+                ('skate_rental_price', models.DecimalField(decimal_places=2, default=100, max_digits=10)),
+                ('instructor_price', models.DecimalField(decimal_places=2, default=200, max_digits=10)),
+                ('employee_discount', models.IntegerField(default=50, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(100)])),
+                ('regular_customer_discount', models.IntegerField(default=10, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(100)])),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+            ],
+            options={
+                'verbose_name': 'Payment Configuration',
+                'verbose_name_plural': 'Payment Configuration',
+            },
+        ),
+        migrations.CreateModel(
+            name='Payment',
+            fields=[
+                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('price', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('date', models.DateTimeField(auto_now_add=True)),
+                ('tariff_type', models.CharField(choices=[('ADULT', 'Взрослый'), ('CHILD', 'Детский')], default='ADULT', max_length=10)),
+                ('percent', models.IntegerField(default=0)),
+                ('amount_adult', models.IntegerField(default=0, validators=[django.core.validators.MinValueValidator(0)])),
+                ('amount_child', models.IntegerField(default=0, validators=[django.core.validators.MinValueValidator(0)])),
+                ('hours', models.IntegerField(default=1, validators=[django.core.validators.MinValueValidator(1)])),
+                ('skate_rental', models.IntegerField(default=0, validators=[django.core.validators.MinValueValidator(0)])),
+                ('instructor_service', models.BooleanField(default=False)),
+                ('status', models.CharField(choices=[('PENDING', 'Ожидает'), ('COMPLETED', 'Завершено'), ('REFUNDED', 'Возвращено'), ('FAILED', 'Ошибка')], default='PENDING', max_length=10)),
+                ('total_amount', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('cheque_code', models.CharField(blank=True, max_length=20, unique=True)),
+                ('ticket_number', models.CharField(blank=True, max_length=10)),
+                ('is_employee', models.BooleanField(default=False)),
+                ('employee_name', models.CharField(blank=True, max_length=255)),
+                ('department_name', models.CharField(blank=True, max_length=150, null=True)),
+                ('position_name', models.CharField(blank=True, max_length=150, null=True)),
+                ('skating_status', models.CharField(choices=[('WAITING', 'Ожидает'), ('IN_PROGRESS', 'В процессе'), ('FINISHED', 'Завершен')], default='WAITING', max_length=20)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='payments', to=settings.AUTH_USER_MODEL)),
+            ],
+        ),
+        migrations.CreateModel(
+            name='SessionSkating',
+            fields=[
+                ('id', models.AutoField(primary_key=True, serialize=False)),
+                ('status', models.CharField(choices=[('WAITING', 'Ожидает'), ('IN_PROGRESS', 'В процессе'), ('FINISHED', 'Завершен')], default='WAITING', max_length=20)),
+                ('date', models.DateField(default=django.utils.timezone.now)),
+                ('start_time', models.DateTimeField(blank=True, null=True)),
+                ('end_time', models.DateTimeField(blank=True, null=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('payment', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='session', to='payment.payment')),
+            ],
+        ),
+    ]

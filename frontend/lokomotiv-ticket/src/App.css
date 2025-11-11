@@ -1,0 +1,22 @@
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter/Inter-Regular.woff2') format('woff2'),
+       url('./assets/fonts/Inter/Inter-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+.content {
+  padding-top: 80px;
+}
+
+:root {
+  --color-blue: #60B7FF;
+  --color-light-blue: #EAF4FF;
+  --color-grey: #E5E7EB;
+  --color-dark-grey: #6B7289;
+}
