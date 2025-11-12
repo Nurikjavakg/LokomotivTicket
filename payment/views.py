@@ -2,6 +2,8 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from rest_framework.status import HTTP_404_NOT_FOUND
+
 from .models import Payment, SessionSkating, PaymentConfiguration
 from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer
 from .services import PaymentService, MegaPayService
@@ -27,6 +29,20 @@ from .services import PaymentService, MegaPayService
 class PaymentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(auto_schema=None)
+    def list(self, request, *args, **kwargs):
+        return super().list(request,args, kwargs)
+
+    @swagger_auto_schema(
+        operation_summary='Получение сеанса по id',
+        operation_description='Получение сеанса по id'
+    )
+    def retrieve(self, request, *args, **kwargs):
+
+        instance = self.get_object()
+        serializer = OperatorSerializer(instance)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
     def get_queryset(self):
         user = self.request.user
         if user.role in ['ADMIN', 'CASHIER']:
@@ -37,7 +53,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return PaymentCreateSerializer
         return PaymentSerializer
-
+    @swagger_auto_schema(
+        operation_summary= 'Создание платежа',
+        operation_description='Создание платежа кассиром'
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
