@@ -31,23 +31,46 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(auto_schema=None)
     def list(self, request, *args, **kwargs):
-        return super().list(request,args, kwargs)
+        return Response({'detail': 'Method not allowed'}, status=405)
 
-    @swagger_auto_schema(
-        operation_summary='Получение сеанса по id',
-        operation_description='Получение сеанса по id'
-    )
-    def retrieve(self, request, *args, **kwargs):
+    @swagger_auto_schema(auto_schema=None)
+    def retrieve(self, request, pk=None):
+        return Response({'detail': 'Use /get-session/ instead'}, status=405)
 
-        instance = self.get_object()
-        serializer = OperatorSerializer(instance)
-        return Response(serializer.data,status=status.HTTP_200_OK)
+    @swagger_auto_schema(auto_schema=None)
+    def update(self, request, pk=None):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+    @swagger_auto_schema(auto_schema=None)
+    def partial_update(self, request, pk=None):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+    @swagger_auto_schema(auto_schema=None)
+    def destroy(self, request, pk=None):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+
 
     def get_queryset(self):
         user = self.request.user
         if user.role in ['ADMIN', 'CASHIER']:
             return Payment.objects.all().order_by('-created_at')
         return Payment.objects.filter(user=user).order_by('-created_at')
+
+    @swagger_auto_schema(
+        operation_summary='Получение сеанса по ID',
+        operation_description='Возвращает данные платежа и статус сеанса катания'
+    )
+    @action(detail=True, methods=['get'], url_path='get-session')
+    def get_session_by_id(self,request, pk=None):
+
+        try:
+            payment = Payment.objects.select_related('session').get(id=pk)
+        except Payment.DoesNotExist:
+            return Response ({'error': 'Платеж не найден'}, status= status.HTTP_404_NOT_FOUND)
+
+        serializer = OperatorSerializer(payment)
+        return Response(serializer.data,status=status.HTTP_200_OK)
 
     def get_serializer_class(self):
         if self.action == 'create':
