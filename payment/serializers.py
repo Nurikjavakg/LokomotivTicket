@@ -72,6 +72,7 @@ class OperatorSerializer(serializers.ModelSerializer):
 
         if instance.skating_status == SessionStatus.WAITING:
             data.pop('time_remaining',None)
+            data.pop('session_info',None)
         return data
 
 class SessionSkatingSerializer(serializers.ModelSerializer):

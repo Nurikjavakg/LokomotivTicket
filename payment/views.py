@@ -1,3 +1,4 @@
+from requests import session
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -120,18 +121,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 )
                 payment.save()
 
-                # Создаём сессию катка
-                session_date = datetime.now().date()
-                start_time = datetime.now()
-                end_time = start_time + timedelta(hours=payment_data['hours'])
 
-                session = SessionSkating(
-                    payment=payment,
-                    date=session_date,
-                    start_time=start_time,
-                    end_time=end_time
-                )
-                session.save()
 
                 # Инициализация оплаты через MegaPay
                 payment_response = MegaPayService.initiate_payment(
@@ -240,34 +230,34 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Платеж не оплачен'}, status=status.HTTP_400_BAD_REQUEST)
         
         if payment.skating_status != SessionStatus.WAITING:
-            return Response({'error': 'Сеанс уже начат или завершен'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Сеанс уже начат или завершен'}, status=status.HTTP_400_BAD_REQUEST)\
+
+        if SessionSkating.objects.filter(payment=payment).exists():
+            return Response({
+                'error': 'Сессия уже создана для этого платежа'
+            }, status=status.HTTP_400_BAD_REQUEST)
        
-       
-        session_skating, created = SessionSkating.objects.get_or_create(
-            payment=payment,
-            defaults={
-                'status': SessionStatus.IN_PROGRESS,
-                'start_time': timezone.now(),
-                'date': timezone.now().date()
-            }
+        start_time = timezone.now()
+        end_time = start_time + timedelta(hours=payment.hours)
+
+        session = SessionSkating(
+            payment = payment,
+            status= SessionStatus.IN_PROGRESS,
+            date= timezone.now(),
+            start_time= start_time,
+            end_time= end_time,
+            created_at= timezone.now()
+
         )
-        
-        if not created:
-            session_skating.status = SessionStatus.IN_PROGRESS
-            session_skating.start_time = timezone.now()
-            session_skating.save()
-        
-       
         payment.skating_status = SessionStatus.IN_PROGRESS
         payment.save()
-        
-        session_end = session_skating.start_time + timezone.timedelta(hours=payment.hours)
+        session.save()
         
         return Response({
             'status': 'Катание начато',
-            'session_end': session_end,
+            'session_end': end_time,
             'duration_hours': payment.hours,
-            'session_id': str(session_skating.id)
+            'session_id': str(session.id)
         })
     
 
@@ -304,13 +294,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         if payment.skating_status != SessionStatus.TIME_EXPIRED:
             return Response({'error': 'Можно завершать только сеансы с истекшим временем'}, status=status.HTTP_400_BAD_REQUEST)
-        
-       
+
+
         if hasattr(payment, 'session'):
             payment.session.status = SessionStatus.FINISHED
             payment.session.end_time = timezone.now()
             payment.session.save()
-        
+
+        session = payment.session
+
+        session.status = SessionStatus.FINISHED
+        session.save()
         
         payment.skating_status = SessionStatus.FINISHED
         payment.save()
@@ -335,9 +329,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response({'error':'Можно завершить только активные сеансы'}, status= status.HTTP_400_BAD_REQUEST)
 
         if hasattr (payment, 'session'):
-            payment.session.status = SessionStatus.FINISHED,
+            payment.session.status = SessionStatus.FINISHED
             payment.session.end_time = timezone.now()
             payment.save()
+
+        session =payment.session
+
+        session.status = SessionStatus.FINISHED
+        session.end_time = timezone.now()
+        session.save()
 
         previous_status = payment.skating_status
         payment.skating_status = SessionStatus.FINISHED
