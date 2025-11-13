@@ -155,7 +155,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 )
     @action(detail=False, methods=['get'])
     def operator_dashboard(self, request):
-        if request.user.role != 'OPERATOR':
+        if request.user.role != 'OPERATOR' and request.user.role != 'ADMIN':
             return Response ({
                 'error': 'Доступна только оператора'}, status = status.HTTP_403_FORBIDDEN)
         

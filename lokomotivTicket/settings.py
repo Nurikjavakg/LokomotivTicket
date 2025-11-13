@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -110,6 +111,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Короткий
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),      # Длинный
+    'ROTATE_REFRESH_TOKENS': True,                    # Новый refresh при обновлении
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 # Настройки CORS
 CORS_ALLOWED_ORIGINS = [
