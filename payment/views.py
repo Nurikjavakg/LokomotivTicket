@@ -2,8 +2,8 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-from .models import Payment, SessionSkating, PaymentConfiguration
-from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer
+from .models import Payment, SessionSkating
+from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer
 from .services import PaymentService, MegaPayService
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -15,14 +15,11 @@ from django.db.models.functions import TruncDate
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-
-
-import uuid
-
 from .models import Payment, SessionSkating
 from .serializers import PaymentSerializer, PaymentCreateSerializer
 from users.models import Department, Position
 from .services import PaymentService, MegaPayService
+import uuid
 
 class PaymentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -37,7 +34,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return PaymentCreateSerializer
         return PaymentSerializer
-
+    
+    @swagger_auto_schema(
+        operation_summary="Создать оплату за каток",
+        operation_description="Этот endpoint используется для создания новой записи об оплате катания на катке",
+        responses={
+            201: openapi.Response("Успешное создание оплаты", PaymentSerializer),
+            400: "Ошибка при создании оплаты (например, сотрудник уже был сегодня)"
+        }
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -53,6 +58,27 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     Department.objects.get_or_create(name=dep_name)
                 if pos_name:
                     Position.objects.get_or_create(name=pos_name)
+
+                # 🔹 Проверяем, если это сотрудник
+                is_employee = payment_data.get('is_employee', False)
+                employee_name = payment_data.get('employee_name', '')
+                # Инициализируем переменную здесь
+                already_exists = False
+                if is_employee and employee_name:
+                 today = timezone.now().date()
+                # Проверяем, был ли этот сотрудник сегодня
+                 already_exists = Payment.objects.filter(
+                    is_employee=True,
+                    employee_name=employee_name,
+                    created_at__date=today,
+                    status__in=['PENDING', 'COMPLETED']  # активные или успешные
+                ).exists()
+
+                if already_exists:
+                    return Response({
+                        'success': False,
+                        'error': f'Сотрудник "{employee_name}" уже был сегодня на катке.'
+                    }, status=status.HTTP_400_BAD_REQUEST)    
 
                 # Расчёт общей суммы
                 total_amount = PaymentService.calculate_total_amount(payment_data)

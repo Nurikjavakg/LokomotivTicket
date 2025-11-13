@@ -23,9 +23,9 @@ from admin_panel.views import (
     PaymentConfigurationViewSet
 )
 
-# 1️⃣ сначала создаём router
+# 1️⃣ сначала создаём routerf
 router = DefaultRouter()
-router.register(r'payment-config', PaymentConfigurationViewSet, basename='payment-config')
+router.register(r'payments', PaymentConfigurationViewSet, basename='payments')
 router.register(r'departments-positions', DepartmentPositionViewSet, basename='departments-positions')
 router.register(r'autocomplete', DepartmentPositionAutocompleteViewSet, basename='autocomplete')
 
@@ -59,7 +59,3 @@ urlpatterns = [
     re_path(r'^swagger/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
-
-
-
-
