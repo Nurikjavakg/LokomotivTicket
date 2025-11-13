@@ -489,15 +489,59 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 },
                 'summary': main_stats,
                 'cashier_perfomance':list(cashier_stats)
-            })
+            })       
     
+    @swagger_auto_schema(
+    operation_summary="Обновить последний платёж пользователя",
+    operation_description="""
+    Позволяет изменить **только последнюю** оплату.
+    Только пользователи с ролями **ADMIN** или **CASHIER** имеют доступ.
 
+    ❗ Ограничения:
+    - Нельзя обновлять чужие платежи.
+    - Нельзя обновлять завершённые платежи (COMPLETED или FAILED).
+    """,
+    responses={
+        200: openapi.Response("Платёж успешно обновлён", PaymentSerializer),
+        400: "Ошибка валидации или нельзя обновить старый платёж",
+        404: "Платёж не найден"
+    }
+)
+    @action(detail=False, methods=['put'], url_path='update-last')
+    def update_payment(self, request):
+       user = request.user
 
+       if user.role not in ['ADMIN', 'CASHIER']:
+            return Response({
+                'error': 'Только администратор или кассир могут изменять оплату.'
+            }, status=status.HTTP_403_FORBIDDEN)
 
+       latest_payment = Payment.objects.order_by('-created_at').first()
 
-        
+       if not latest_payment:
+        return Response({
+            'success': False,
+            'error': 'У вас нет ни одного платежа для обновления.'
+        }, status=status.HTTP_404_NOT_FOUND)
+       
+       serializer = PaymentCreateSerializer(latest_payment, data=request.data, partial=True)
+       serializer.is_valid(raise_exception=True)
 
+       try:
+        with transaction.atomic():
+            # 🔹 Пересчитать сумму, если изменились данные
+            updated_data = serializer.validated_data
+            latest_payment.total_amount = PaymentService.calculate_total_amount(updated_data)
+            serializer.save()
 
-
-
-        
+            return Response({
+                'success': True,
+                'message': 'Последняя оплата успешно обновлена.',
+                'data': serializer.data
+            }, status=status.HTTP_200_OK)
+       except Exception as e:
+        return Response({
+            'success': False,
+            'error': f'Ошибка при обновлении: {str(e)}'
+        }, status=status.HTTP_400_BAD_REQUEST)
+              
