@@ -66,7 +66,14 @@ class OperatorSerializer(serializers.ModelSerializer):
                 'date':obj.session.date
             }
         return None
-    
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        if instance.skating_status == SessionStatus.WAITING:
+            data.pop('time_remaining',None)
+            data.pop('session_info',None)
+        return data
 
 class SessionSkatingSerializer(serializers.ModelSerializer):
     payment_info = OperatorSerializer(source='payment',read_only=True)

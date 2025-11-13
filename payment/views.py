@@ -1,7 +1,12 @@
+from requests import session
 from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
+from rest_framework.status import HTTP_404_NOT_FOUND
+
+from .models import Payment, SessionSkating, PaymentConfiguration
+from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer
 from .models import Payment, SessionSkating
 from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer
 from .services import PaymentService, MegaPayService
@@ -24,17 +29,54 @@ import uuid
 class PaymentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(auto_schema=None)
+    def list(self, request, *args, **kwargs):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+    @swagger_auto_schema(auto_schema=None)
+    def retrieve(self, request, pk=None):
+        return Response({'detail': 'Use /get-session/ instead'}, status=405)
+
+    @swagger_auto_schema(auto_schema=None)
+    def update(self, request, pk=None):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+    @swagger_auto_schema(auto_schema=None)
+    def partial_update(self, request, pk=None):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+    @swagger_auto_schema(auto_schema=None)
+    def destroy(self, request, pk=None):
+        return Response({'detail': 'Method not allowed'}, status=405)
+
+
+
     def get_queryset(self):
         user = self.request.user
         if user.role in ['ADMIN', 'CASHIER']:
             return Payment.objects.all().order_by('-created_at')
         return Payment.objects.filter(user=user).order_by('-created_at')
 
+    @swagger_auto_schema(
+        operation_summary='Получение сеанса по ID',
+        operation_description='Возвращает данные платежа и статус сеанса катания'
+    )
+    @action(detail=True, methods=['get'], url_path='get-session')
+    def get_session_by_id(self,request, pk=None):
+
+        try:
+            payment = Payment.objects.select_related('session').get(id=pk)
+        except Payment.DoesNotExist:
+            return Response ({'error': 'Платеж не найден'}, status= status.HTTP_404_NOT_FOUND)
+
+        serializer = OperatorSerializer(payment)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
     def get_serializer_class(self):
         if self.action == 'create':
             return PaymentCreateSerializer
         return PaymentSerializer
-    
+
     @swagger_auto_schema(
         operation_summary="Создать оплату за каток",
         operation_description="Этот endpoint используется для создания новой записи об оплате катания на катке",
@@ -78,7 +120,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     return Response({
                         'success': False,
                         'error': f'Сотрудник "{employee_name}" уже был сегодня на катке.'
-                    }, status=status.HTTP_400_BAD_REQUEST)    
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
                 # Расчёт общей суммы
                 total_amount = PaymentService.calculate_total_amount(payment_data)
@@ -102,18 +144,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 )
                 payment.save()
 
-                # Создаём сессию катка
-                session_date = datetime.now().date()
-                start_time = datetime.now()
-                end_time = start_time + timedelta(hours=payment_data['hours'])
 
-                session = SessionSkating(
-                    payment=payment,
-                    date=session_date,
-                    start_time=start_time,
-                    end_time=end_time
-                )
-                session.save()
 
                 # Инициализация оплаты через MegaPay
                 payment_response = MegaPayService.initiate_payment(
@@ -162,7 +193,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
 )
     @action(detail=False, methods=['get'])
     def operator_dashboard(self, request):
-        if request.user.role != 'OPERATOR':
+        if request.user.role != 'OPERATOR' and request.user.role != 'ADMIN':
             return Response ({
                 'error': 'Доступна только оператора'}, status = status.HTTP_403_FORBIDDEN)
         
@@ -222,34 +253,34 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Платеж не оплачен'}, status=status.HTTP_400_BAD_REQUEST)
         
         if payment.skating_status != SessionStatus.WAITING:
-            return Response({'error': 'Сеанс уже начат или завершен'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Сеанс уже начат или завершен'}, status=status.HTTP_400_BAD_REQUEST)\
+
+        if SessionSkating.objects.filter(payment=payment).exists():
+            return Response({
+                'error': 'Сессия уже создана для этого платежа'
+            }, status=status.HTTP_400_BAD_REQUEST)
        
-       
-        session_skating, created = SessionSkating.objects.get_or_create(
-            payment=payment,
-            defaults={
-                'status': SessionStatus.IN_PROGRESS,
-                'start_time': timezone.now(),
-                'date': timezone.now().date()
-            }
+        start_time = timezone.now()
+        end_time = start_time + timedelta(hours=payment.hours)
+
+        session = SessionSkating(
+            payment = payment,
+            status= SessionStatus.IN_PROGRESS,
+            date= timezone.now(),
+            start_time= start_time,
+            end_time= end_time,
+            created_at= timezone.now()
+
         )
-        
-        if not created:
-            session_skating.status = SessionStatus.IN_PROGRESS
-            session_skating.start_time = timezone.now()
-            session_skating.save()
-        
-       
         payment.skating_status = SessionStatus.IN_PROGRESS
         payment.save()
-        
-        session_end = session_skating.start_time + timezone.timedelta(hours=payment.hours)
+        session.save()
         
         return Response({
             'status': 'Катание начато',
-            'session_end': session_end,
+            'session_end': end_time,
             'duration_hours': payment.hours,
-            'session_id': str(session_skating.id)
+            'session_id': str(session.id)
         })
     
 
@@ -286,13 +317,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
         
         if payment.skating_status != SessionStatus.TIME_EXPIRED:
             return Response({'error': 'Можно завершать только сеансы с истекшим временем'}, status=status.HTTP_400_BAD_REQUEST)
-        
-       
+
+
         if hasattr(payment, 'session'):
             payment.session.status = SessionStatus.FINISHED
             payment.session.end_time = timezone.now()
             payment.session.save()
-        
+
+        session = payment.session
+
+        session.status = SessionStatus.FINISHED
+        session.save()
         
         payment.skating_status = SessionStatus.FINISHED
         payment.save()
@@ -317,9 +352,15 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response({'error':'Можно завершить только активные сеансы'}, status= status.HTTP_400_BAD_REQUEST)
 
         if hasattr (payment, 'session'):
-            payment.session.status = SessionStatus.FINISHED,
+            payment.session.status = SessionStatus.FINISHED
             payment.session.end_time = timezone.now()
             payment.save()
+
+        session =payment.session
+
+        session.status = SessionStatus.FINISHED
+        session.end_time = timezone.now()
+        session.save()
 
         previous_status = payment.skating_status
         payment.skating_status = SessionStatus.FINISHED
