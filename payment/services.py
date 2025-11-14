@@ -17,6 +17,9 @@ class PaymentService:
         instructor_service = payment_data.get('instructor_service', False)
         is_employee = payment_data.get('is_employee', False)
         
+        adult_price = config.adult_price_per_hour
+        child_price = config.child_price_per_hour
+        
         # Calculate base amount
         adult_total = amount_adult * hours * config.adult_price_per_hour
         child_total = amount_child * hours * config.child_price_per_hour
@@ -33,9 +36,26 @@ class PaymentService:
         # скидка для обычных клиентов
           discount = config.regular_customer_discount
           if discount > 0:
-           total = total * (1 - Decimal(discount) / 100)    
-        
-        return total
+           total = total * (1 - Decimal(discount) / 100) 
+
+        discount_amount = total * (Decimal(discount) / 100)
+        total_after_discount = total - discount_amount
+        return {
+            'total': total_after_discount,
+            'discount_percent': discount,
+            'discount_amount': discount_amount,
+            'adult_count': amount_adult,
+            'child_count': amount_child,
+            'hours': hours,
+            'skate_rental_count': skate_rental,
+            'instructor_used': instructor_service,
+            'adult_total': adult_total,
+            'child_total': child_total,
+            'skate_total': skate_total,
+            'adult_price_per_hour': adult_price,
+            'child_price_per_hour': child_price,
+            'instructor_total': instructor_total,
+        }
     
     @staticmethod
     def generate_slip_data(payment):
