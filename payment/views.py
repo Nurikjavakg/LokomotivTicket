@@ -6,9 +6,10 @@ from django.db import transaction
 from rest_framework.status import HTTP_404_NOT_FOUND
 
 from .models import Payment, SessionSkating, PaymentConfiguration
-from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer
+from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer, \
+    OperatorSerializerOne
 from .models import Payment, SessionSkating
-from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer
+from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, OperatorSerializerOne
 from .services import PaymentService, MegaPayService
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -69,7 +70,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         except Payment.DoesNotExist:
             return Response ({'error': 'Платеж не найден'}, status= status.HTTP_404_NOT_FOUND)
 
-        serializer = OperatorSerializer(payment)
+        serializer = OperatorSerializerOne(payment)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
     def get_serializer_class(self):

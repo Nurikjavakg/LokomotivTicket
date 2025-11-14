@@ -1,3 +1,4 @@
+from django.db.models.functions import NullIf
 from rest_framework import serializers
 from django.utils import timezone
 from .models import Payment, SessionSkating, PaymentStatus, SessionStatus
@@ -33,18 +34,26 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         return data
 
 class OperatorSerializer(serializers.ModelSerializer):
-    cashier_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    time_remaining = serializers.SerializerMethodField()
-    session_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
         fields = [
-            'id', 'cheque_code','amount_adult', 'amount_child',
-            'hours', 'skate_rental','time_remaining',
-            'ticket_number','employee_name',
-            'skating_status', 'cashier_name','session_info'
+            'id','ticket_number','amount_adult', 'amount_child',
+
         ]
+
+class OperatorSerializerOne(serializers.ModelSerializer):
+    start_time = serializers.DateTimeField(source='session.start_time', read_only=True)
+    end_time = serializers.DateTimeField(source='session.end_time',read_only=True)
+    time_remaining =serializers.SerializerMethodField()
+    class Meta:
+        model = Payment
+        fields = [
+            'id', 'ticket_number','amount_adult','amount_child',
+            'start_time','end_time','hours','time_remaining'
+
+        ]
+
     def get_time_remaining(self, obj):
        
         if (obj.skating_status == SessionStatus.IN_PROGRESS and 
@@ -54,8 +63,6 @@ class OperatorSerializer(serializers.ModelSerializer):
             session_end = obj.session.start_time + timezone.timedelta(hours=obj.hours)
             remaining = session_end - timezone.now()
             return max(0, int(remaining.total_seconds() / 60))
-        
-        
         return 0
     
     def get_session_info(self,obj):
@@ -73,6 +80,10 @@ class OperatorSerializer(serializers.ModelSerializer):
         if instance.skating_status == SessionStatus.WAITING:
             data.pop('time_remaining',None)
             data.pop('session_info',None)
+            data.pop('start_time',None)
+            data.pop('end_time',None)
+
+
         return data
 
 class SessionSkatingSerializer(serializers.ModelSerializer):
