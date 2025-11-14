@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from rest_framework.status import HTTP_404_NOT_FOUND
 
+from .fiscal import logger
 from .models import Payment, SessionSkating, PaymentConfiguration
 from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer, \
     OperatorSerializerOne
@@ -157,6 +158,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 if payment_response.get('success'):
                     payment.status = 'COMPLETED'
                     payment.save()
+
+                    from .fiscal import fiscalize_payment
+
+                    fiscal_result = fiscalize_payment(payment)
+                    if not fiscal_result["success"] and not fiscal_result.get("already_done"):
+                        logger.warning(f"Не удалось выбить чек для {payment.cheque_code}: {fiscal_result['error']}")
 
                     return Response({
                         'success': True,
