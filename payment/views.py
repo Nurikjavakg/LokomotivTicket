@@ -108,22 +108,34 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 already_exists = False
                 if is_employee and employee_name:
                  today = timezone.now().date()
-                # Проверяем, был ли этот сотрудник сегодня
-                 already_exists = Payment.objects.filter(
-                    is_employee=True,
-                    employee_name=employee_name,
-                    created_at__date=today,
-                    status__in=['PENDING', 'COMPLETED']  # активные или успешные
-                ).exists()
 
-                if already_exists:
+                # Проверяем, был ли этот сотрудник сегодня
+                 existing_payment = Payment.objects.filter(
+                      is_employee=True,
+                      employee_name=employee_name,
+                      created_at__date=today,
+                      status__in=['PENDING', 'COMPLETED']
+                 ).order_by('-created_at').first()
+
+                 if existing_payment:
+                    visit_time = existing_payment.created_at.strftime('%H:%M:%S')
                     return Response({
-                        'success': False,
-                        'error': f'Сотрудник "{employee_name}" уже был сегодня на катке.'
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                     'success': False,
+                     'error': 'Сотрудник уже был сегодня на катке.',
+                     'employee_name': employee_name,
+                     'visited_at': visit_time
+                     }, status=status.HTTP_400_BAD_REQUEST)
 
                 # Расчёт общей суммы
-                total_amount = PaymentService.calculate_total_amount(payment_data)
+                amounts = PaymentService.calculate_total_amount(payment_data)
+                total_amount = amounts['total'] 
+
+                # Берём ticket_number из запроса
+                ticket_number = payment_data.get('ticket_number', '')
+
+                # Добавляем "Л" спереди, если ещё нет
+                ticket_number_raw = payment_data.get('ticket_number', '')
+                ticket_number = f"Л{ticket_number_raw}"  
 
                 # Создаём Payment
                 payment = Payment(
@@ -135,7 +147,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     hours=payment_data['hours'],
                     skate_rental=payment_data.get('skate_rental', 0),
                     instructor_service=payment_data.get('instructor_service', False),
-                    ticket_number=payment_data.get('ticket_number', ''),
+                    ticket_number=ticket_number, 
                     is_employee=payment_data.get('is_employee', False),
                     employee_name=payment_data.get('employee_name', ''),
                     total_amount=total_amount,
@@ -143,8 +155,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     status='PENDING'
                 )
                 payment.save()
-
-
 
                 # Инициализация оплаты через MegaPay
                 payment_response = MegaPayService.initiate_payment(
@@ -158,13 +168,24 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     payment.save()
 
                     return Response({
-                        'success': True,
-                        'payment_id': payment.id,
-                        'cheque_code': payment.cheque_code,
-                        'total_amount': total_amount,
-                        'redirect_url': payment_response.get('redirect_url'),
-                        'slip_data': PaymentService.generate_slip_data(payment)
-                    }, status=status.HTTP_201_CREATED)
+                          'ticket_number': ticket_number,
+                          'hours': amounts['hours'],
+                          'adult_price_per_hour': float(amounts['adult_price_per_hour']),
+                          'adult_count': amounts['adult_count'],
+                          'adult_total': float(amounts['adult_total']),
+                          'child_price_per_hour': float(amounts['child_price_per_hour']),
+                          'child_count': amounts['child_count'],
+                          'child_total': float(amounts['child_total']),
+                          'skate_rental_count': amounts['skate_rental_count'],
+                          'skate_total': float(amounts['skate_total']),
+                          'instructor_used': amounts['instructor_used'],
+                          'instructor_total': float(amounts['instructor_total']),
+                          'discount_percent': float(amounts['discount_percent']),
+                          'total_amount': float(amounts['total'])
+                        #   'redirect_url': payment_response.get('redirect_url')
+                          # 'slip_data': PaymentService.generate_slip_data(payment)
+
+    }, status=status.HTTP_201_CREATED)
                 else:
                     payment.status = 'FAILED'
                     payment.save()
