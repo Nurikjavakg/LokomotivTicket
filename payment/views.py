@@ -273,9 +273,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'error': 'Платеж не найден'
             }, status= status.HTTP_404_NOT_FOUND)
 
-        if request.user.role != 'OPERATOR':
+        if request.user.role != Role.OPERATOR and request.user.role != Role.ADMIN:
             return Response ({
-                'error': 'Только оператор может начать сеанс'}, status= status.HTTP_403_FORBIDDEN
+                'error': 'Только оператор или администратор может начать сеанс'}, status= status.HTTP_403_FORBIDDEN
             )
         
         if payment.status != PaymentStatus.COMPLETED:
@@ -340,8 +340,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
             }, status= status.HTTP_404_NOT_FOUND)
 
         
-        if request.user.role != 'OPERATOR':
-            return Response({'error': 'Только оператор может завершать сеансы'}, 
+        if request.user.role != Role.OPERATOR and request.user.role != Role.ADMIN:
+            return Response({'error': 'Только оператор или администратор может завершать сеансы'},
                           status=status.HTTP_403_FORBIDDEN)
         
         if payment.skating_status != SessionStatus.TIME_EXPIRED:
@@ -374,8 +374,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
         except Payment.DoesNotExist:
             return Response({'error': 'Платеж не найден'}, status= status.HTTP_404_NOT_FOUND)
         
-        if request.user.role != Role.OPERATOR:
-            return Response({'error': 'Только оператор может завершить сеанс'} , status= status.HTTP_403_FORBIDDEN)
+        if request.user.role != Role.OPERATOR and request.user.role != Role.ADMIN:
+            return Response({'error': 'Только оператор или администратор может завершить сеанс'} , status= status.HTTP_403_FORBIDDEN)
 
         if payment.skating_status not in [SessionStatus.IN_PROGRESS, SessionStatus.TIME_EXPIRED]:
             return Response({'error':'Можно завершить только активные сеансы'}, status= status.HTTP_400_BAD_REQUEST)
