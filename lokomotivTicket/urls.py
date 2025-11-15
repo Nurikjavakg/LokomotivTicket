@@ -34,6 +34,7 @@ from django.urls import path, include, re_path
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
+from django.http import HttpResponse
 
 
 schema_view = get_schema_view(
@@ -49,7 +50,11 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,),
 )
 
+def home(request):
+    return HttpResponse("Lokomotiv backend работает!")
+
 urlpatterns = [
+    path('', home), 
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/payment/', include('payment.urls')),
