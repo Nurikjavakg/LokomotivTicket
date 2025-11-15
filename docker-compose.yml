@@ -24,6 +24,8 @@ services:
       - DJANGO_SETTINGS_MODULE=lokomotivTicket.settings.prod  
     ports:
       - "8000:8000"
+    volumes:
+      - .:/app   # <-- добавляем эту строку, чтобы контейнер видел локальный код  
     depends_on:
       - db
     networks:
