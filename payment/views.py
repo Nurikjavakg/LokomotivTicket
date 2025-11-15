@@ -589,4 +589,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
             'success': False,
             'error': f'Ошибка при обновлении: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
-              
+       
+
+       

@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: lokomotiv_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - lokomotiv_net
+
+  web:
+    image: nurik345/lokomotivticket:latest
+    container_name: lokomotiv_django
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=lokomotivTicket.settings.prod  
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - lokomotiv_net
+
+volumes:
+  postgres_data:
+
+networks:
+  lokomotiv_net:
