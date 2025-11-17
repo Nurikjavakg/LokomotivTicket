@@ -27,12 +27,12 @@ jobs:
           push: true
           tags: nurik345/lokomotivticket:latest
 
-      - name: Deploy to server
+      - name: Deploy to Server
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: 10.15.15.29
           username: megaton
-          password: NtPASS312
+          password: ${{ secrets.SERVER_PASS }}
           script: |
             cd /home/megaton/lokomotiv
             docker compose pull
