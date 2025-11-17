@@ -26,6 +26,7 @@ from .serializers import PaymentSerializer, PaymentCreateSerializer
 from users.models import Department, Position
 from .services import PaymentService, MegaPayService
 import uuid
+from django.http import JsonResponse
 
 class PaymentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
@@ -169,24 +170,54 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     payment.save()
 
                     return Response({
-                          'ticket_number': ticket_number,
-                          'hours': amounts['hours'],
-                          'adult_price_per_hour': float(amounts['adult_price_per_hour']),
-                          'adult_count': amounts['adult_count'],
-                          'adult_total': float(amounts['adult_total']),
-                          'child_price_per_hour': float(amounts['child_price_per_hour']),
-                          'child_count': amounts['child_count'],
-                          'child_total': float(amounts['child_total']),
-                          'skate_rental_count': amounts['skate_rental_count'],
-                          'skate_total': float(amounts['skate_total']),
-                          'instructor_used': amounts['instructor_used'],
-                          'instructor_total': float(amounts['instructor_total']),
-                          'discount_percent': float(amounts['discount_percent']),
-                          'total_amount': float(amounts['total'])
-                        #   'redirect_url': payment_response.get('redirect_url')
-                          # 'slip_data': PaymentService.generate_slip_data(payment)
+                       "category": "Сотрудник" if payment.is_employee else "Обычный клиент",
+                       "employee_name": payment.employee_name or "",
+                       "department_name": payment.department_name or "",
+                       "position_name": payment.position_name or "",
+                       "ticket_number": payment.ticket_number,
 
-    }, status=status.HTTP_201_CREATED)
+                       "hours": {
+                           "value": amounts['hours'],
+                           "hint": "Количество часов"
+                      },
+                      "adult_price_per_hour": {
+                         "value": float(amounts['adult_price_per_hour']),
+                           "hint": "Цена за взрослого"
+                       },
+                       "adult_count": {
+                           "value": amounts['adult_count'],
+                           "hint": "Количество взрослых"
+                       },
+                       "child_price_per_hour": {
+                           "value": float(amounts['child_price_per_hour']),
+                           "hint": "Цена за ребенка"
+                       },
+                       "child_count": {
+                           "value": amounts['child_count'],
+                           "hint": "Количество детей"
+                       },
+                       "skate_rental_count": {
+                           "value": amounts['skate_rental_count'],
+                           "hint": "Коньков в аренду"
+                       },
+                       "skate_total": {
+                           "value": float(amounts['skate_total']),
+                           "hint": "Цена за аренду коньков"
+                       },
+                       "instructor_used": amounts['instructor_used'],
+                       "instructor_total": {
+                           "value": float(amounts['instructor_total']),
+                           "hint": "Цена за инструктора"
+                       },
+                       "discount_percent": {
+                           "value": float(amounts['discount_percent']),
+                           "hint": "Скидка"
+                       },
+                       "total_amount": {
+                           "value": float(amounts['total']),
+                           "hint": "Общая сумма"
+                       }
+                    }, status=status.HTTP_201_CREATED)
                 else:
                     payment.status = 'FAILED'
                     payment.save()
@@ -537,58 +568,163 @@ class PaymentViewSet(viewsets.ModelViewSet):
             })       
     
     @swagger_auto_schema(
-    operation_summary="Обновить последний платёж пользователя",
+    operation_summary="Обновить платёж по ID",
     operation_description="""
-    Позволяет изменить **только последнюю** оплату.
-    Только пользователи с ролями **ADMIN** или **CASHIER** имеют доступ.
+    Позволяет изменить платёж **по ID**, но только если это последний платёж пользователя.
+    Доступно только ролям **ADMIN** или **CASHIER**.
 
     ❗ Ограничения:
+    - Можно обновлять только последний платёж.
     - Нельзя обновлять чужие платежи.
     - Нельзя обновлять завершённые платежи (COMPLETED или FAILED).
     """,
     responses={
         200: openapi.Response("Платёж успешно обновлён", PaymentSerializer),
-        400: "Ошибка валидации или нельзя обновить старый платёж",
+        400: "Ошибка валидации или нельзя обновить этот платёж",
         404: "Платёж не найден"
     }
 )
-    @action(detail=False, methods=['put'], url_path='update-last')
-    def update_payment(self, request):
-       user = request.user
+    @action(detail=True, methods=['put'], url_path='update-payment')
+    def update_payment(self, request, pk=None):
+     user = request.user
 
-       if user.role not in ['ADMIN', 'CASHIER']:
-            return Response({
-                'error': 'Только администратор или кассир могут изменять оплату.'
-            }, status=status.HTTP_403_FORBIDDEN)
+     if user.role not in ['ADMIN', 'CASHIER']:
+        return Response({
+            'error': 'Только администратор или кассир могут изменять оплату.'
+        }, status=status.HTTP_403_FORBIDDEN)
 
-       latest_payment = Payment.objects.order_by('-created_at').first()
-
-       if not latest_payment:
+    # 🔍 Ищем платёж по ID
+     try:
+        payment = Payment.objects.get(id=pk)
+     except Payment.DoesNotExist:
         return Response({
             'success': False,
-            'error': 'У вас нет ни одного платежа для обновления.'
+            'error': 'Платёж с таким ID не найден.'
         }, status=status.HTTP_404_NOT_FOUND)
-       
-       serializer = PaymentCreateSerializer(latest_payment, data=request.data, partial=True)
-       serializer.is_valid(raise_exception=True)
 
-       try:
+    # 🔥 Получаем последний платёж
+     latest_payment = Payment.objects.order_by('-created_at').first()
+
+    # 🔒 Разрешено обновлять только последний платёж
+     if payment.id != latest_payment.id:
+        return Response({
+            'success': False,
+            'error': 'Можно обновлять только последний платеж.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+     # Копируем данные запроса для модификации
+     data = request.data.copy()
+    
+    # Добавляем "Л" к номеру талона
+     ticket_number_raw = data.get('ticket_number', '')
+     if ticket_number_raw and not ticket_number_raw.startswith('Л'):
+        data['ticket_number'] = f"Л{ticket_number_raw}"
+
+     serializer = PaymentCreateSerializer(payment, data=data, partial=True)
+     serializer.is_valid(raise_exception=True)
+     
+
+     try:
         with transaction.atomic():
-            # 🔹 Пересчитать сумму, если изменились данные
+            # Пересчёт суммы
             updated_data = serializer.validated_data
-            latest_payment.total_amount = PaymentService.calculate_total_amount(updated_data)
-            serializer.save()
+            amounts = PaymentService.calculate_total_amount(updated_data)
 
+            # Обновляем общую сумму
+            updated_data['total_amount'] = amounts['total']
+            
+            # Сохраняем через сериализатор (один раз!)
+            serializer.save()
             return Response({
                 'success': True,
-                'message': 'Последняя оплата успешно обновлена.',
-                'data': serializer.data
+                'message': 'Платёж успешно обновлён.'
             }, status=status.HTTP_200_OK)
-       except Exception as e:
+
+     except Exception as e:
         return Response({
             'success': False,
             'error': f'Ошибка при обновлении: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
        
+    @swagger_auto_schema(
+        operation_summary="Получить последний платеж",
+        operation_description="Возвращает данные только последнего платежа: номер талона, время оплаты и сумму",
+        responses={
+            200: openapi.Response("Последний платеж найден"),
+            404: "Платеж не найден"
+        }
+    )
+    @action(detail=False, methods=['get'], url_path='last-payment')
+    def get_last_payment(self, request):
+        """
+        Получение последнего платежа.
+        """
+        latest_payment = Payment.objects.order_by('-created_at').first()
+        if not latest_payment:
+            return Response({
+                'success': False,
+                'error': 'Платежи не найдены'
+            }, status=HTTP_404_NOT_FOUND)
+        
+        # Расчёт суммы для корректного JSON
+        amounts = PaymentService.calculate_total_amount({
+            'amount_adult': latest_payment.amount_adult,
+            'amount_child': latest_payment.amount_child,
+            'hours': latest_payment.hours,
+            'skate_rental': latest_payment.skate_rental,
+            'instructor_service': latest_payment.instructor_service,
+            'is_employee': latest_payment.is_employee
+        })
 
-       
+        data = {
+            "id": latest_payment.id,
+            "category": "Сотрудник" if latest_payment.is_employee else "Обычный клиент",
+            "employee_name": latest_payment.employee_name or "",
+            "department_name": latest_payment.department_name or "",
+            "position_name": latest_payment.position_name or "",
+            "ticket_number": latest_payment.ticket_number,
+            
+            "hours": {
+                "value": amounts['hours'],
+                "hint": "Количество часов"
+            },
+            "adult_price_per_hour": {
+                "value": float(amounts['adult_price_per_hour']),
+                "hint": "Цена за взрослого"
+            },
+            "adult_count": {
+                "value": amounts['adult_count'],
+                "hint": "Количество взрослых"
+            },
+            "child_price_per_hour": {
+                "value": float(amounts['child_price_per_hour']),
+                "hint": "Цена за ребенка"
+            },
+            "child_count": {
+                "value": amounts['child_count'],
+                "hint": "Количество детей"
+            },
+            "skate_rental_count": {
+                "value": amounts['skate_rental_count'],
+                "hint": "Коньков в аренду"
+            },
+            "skate_total": {
+                "value": float(amounts['skate_total']),
+                "hint": "Цена за аренду коньков"
+            },
+            "instructor_used": amounts['instructor_used'],
+            "instructor_total": {
+                "value": float(amounts['instructor_total']),
+                "hint": "Цена за инструктора"
+            },
+            "discount_percent": {
+                "value": float(amounts['discount_percent']),
+                "hint": "Скидка"
+            },
+            "total_amount": {
+                "value": float(amounts['total']),
+                "hint": "Общая сумма"
+            }
+        }
+    
+        return Response(data, status=status.HTTP_200_OK)

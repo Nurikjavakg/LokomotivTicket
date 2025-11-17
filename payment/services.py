@@ -6,10 +6,12 @@ import json
 class PaymentService:
     @staticmethod
     def calculate_total_amount(payment_data):
+        # Получаем конфигурацию цен
         config = PaymentConfiguration.objects.first()
         if not config:
             config = PaymentConfiguration.objects.create()
         
+        # Данные из запроса
         amount_adult = payment_data['amount_adult']
         amount_child = payment_data['amount_child']
         hours = payment_data['hours']
@@ -19,44 +21,62 @@ class PaymentService:
         
         adult_price = config.adult_price_per_hour
         child_price = config.child_price_per_hour
-        
-        # Calculate base amount
-        adult_total = amount_adult * hours * config.adult_price_per_hour
-        child_total = amount_child * hours * config.child_price_per_hour
+
+        # Скидка %
+        discount_percent = config.employee_discount if is_employee else config.regular_customer_discount
+
+        # Общее количество посетителей
+        total_people = amount_adult + amount_child
+        discountable_people = min(total_people, 3)  # скидка только на первых 3
+        nondiscount_people = total_people - discountable_people
+
+        # Разделяем скидку на взрослых и детей
+        disc_adult = min(amount_adult, discountable_people)
+        disc_child = max(discountable_people - disc_adult, 0)
+
+        nondisc_adult = amount_adult - disc_adult
+        nondisc_child = amount_child - disc_child
+
+        # Считаем тарифы
+        adult_rate = adult_price * hours
+        child_rate = child_price * hours
+
+        # Сумма со скидкой
+        discount_multiplier = (1 - Decimal(discount_percent) / 100)
+        adult_discounted_total = disc_adult * adult_rate * discount_multiplier
+        child_discounted_total = disc_child * child_rate * discount_multiplier
+
+        # Сумма без скидки
+        adult_nondiscount_total = nondisc_adult * adult_rate
+        child_nondiscount_total = nondisc_child * child_rate
+
+        # Доп. услуги
         skate_total = skate_rental * config.skate_rental_price
         instructor_total = config.instructor_price if instructor_service else Decimal(0)
-        
-        total = adult_total + child_total + skate_total + instructor_total
-        
-        # Apply discounts
-        if is_employee:
-            discount = config.employee_discount
-            total = total * (1 - Decimal(discount) / 100)
-        else:
-        # скидка для обычных клиентов
-          discount = config.regular_customer_discount
-          if discount > 0:
-           total = total * (1 - Decimal(discount) / 100) 
 
-        discount_amount = total * (Decimal(discount) / 100)
-        total_after_discount = total - discount_amount
+        # Общая сумма
+        total_after_discount = (
+            adult_discounted_total + child_discounted_total +
+            adult_nondiscount_total + child_nondiscount_total +
+            skate_total + instructor_total
+        )
+
         return {
             'total': total_after_discount,
-            'discount_percent': discount,
-            'discount_amount': discount_amount,
+            'discount_percent': discount_percent,
             'adult_count': amount_adult,
             'child_count': amount_child,
             'hours': hours,
             'skate_rental_count': skate_rental,
             'instructor_used': instructor_service,
-            'adult_total': adult_total,
-            'child_total': child_total,
+            'adult_total': adult_discounted_total + adult_nondiscount_total,
+            'child_total': child_discounted_total + child_nondiscount_total,
             'skate_total': skate_total,
-            'adult_price_per_hour': adult_price,
-            'child_price_per_hour': child_price,
             'instructor_total': instructor_total,
+            'adult_price_per_hour': adult_price,
+            'child_price_per_hour': child_price
         }
-    
+
     @staticmethod
     def generate_slip_data(payment):
         config = PaymentConfiguration.objects.first()
@@ -82,6 +102,7 @@ class PaymentService:
         }
         
         return slip_data
+
 
 class MegaPayService:
     BASE_URL = "https://api.megapay.kz"  # Замените на реальный URL API
