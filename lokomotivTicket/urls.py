@@ -58,10 +58,15 @@ urlpatterns = [
     path('api/admin-panel/', include(router.urls)),
     path('api/admin-panel/', include('admin_panel.urls')),
     
-    # Swagger URLs - исправленные
+    # === ИСПРАВЛЕННЫЙ Swagger + Redoc ===
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Используйте path вместо re_path
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # Используйте path вместо re_path
+    re_path(r'^swagger/$', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    re_path(r'^redoc/$', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+
+    # ←←← ВАЖНО! Добавь эти строки — они отдают статику Swagger UI
+    path('swagger-ui.css', schema_view.with_ui(renderer='swagger', cache_timeout=0), name='swagger-css'),
+    path('swagger/<str:path>', schema_view.with_ui('swagger', cache_timeout=0)),  # ловит все остальные файлы
+    # или проще и надёжнее — добавить статику drf-yasg в Whitenoise:
 ]
 
 # Для обслуживания статических файлов в разработке
