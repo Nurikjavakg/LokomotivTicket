@@ -1,17 +1,4 @@
 services:
-  db:
-    image: postgres:15
-    container_name: lokomotiv_postgres
-    restart: always
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - lokomotiv_net
-
   web:
     image: nurik345/lokomotivticket:latest
     container_name: lokomotiv_django
@@ -26,13 +13,10 @@ services:
       - db
     networks:
       - lokomotiv_net
-    # Добавьте volume для статики если нужно
     volumes:
       - static_volume:/app/staticfiles
-
-volumes:
-  postgres_data:
-  static_volume:
-
-networks:
-  lokomotiv_net:
+      - ./static:/app/static  # Добавьте это для разработки
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py migrate --noinput &&
+             gunicorn lokomotivTicket.wsgi:application --bind 0.0.0.0:8000 --workers 3"
