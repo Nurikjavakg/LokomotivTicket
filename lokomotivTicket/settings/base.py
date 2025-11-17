@@ -35,7 +35,7 @@ ROOT_URLCONF = 'lokomotivTicket.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],  # Добавьте эту строку
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -49,6 +49,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'lokomotivTicket.wsgi.application'
 
+# Обновленные настройки Swagger
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
         'Bearer': {
@@ -59,8 +60,11 @@ SWAGGER_SETTINGS = {
         }
     },
     'USE_SESSION_AUTH': False,
+    'VALIDATOR_URL': None,
+    'DEFAULT_INFO': 'lokomotivTicket.urls.schema_view',  # Добавьте эту строку
 }
 
+# Настройки REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -70,6 +74,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',  # Добавьте эту строку
 }
 
 SIMPLE_JWT = {
@@ -79,9 +84,16 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+# Настройки CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://10.15.15.29:8080",  # Добавьте ваш IP
 ]
+
+CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
+
+CORS_ALLOW_CREDENTIALS = True
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -97,4 +109,9 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Добавьте настройки для медиа файлов
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
