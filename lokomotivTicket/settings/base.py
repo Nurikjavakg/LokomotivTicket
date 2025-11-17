@@ -53,7 +53,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'lokomotivTicket.wsgi.application'
 
-# Swagger настройки
+# Для Swagger добавьте эти настройки
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
         'Bearer': {
@@ -64,7 +64,8 @@ SWAGGER_SETTINGS = {
     },
     'USE_SESSION_AUTH': False,
     'JSON_EDITOR': True,
-    'DEFAULT_INFO': 'lokomotivTicket.urls.schema_view',  # Важно!
+    'DEFAULT_API_URL': 'http://localhost:8080',  # Добавьте это
+    'VALIDATOR_URL': None,  # Отключите валидатор
 }
 
 REDOC_SETTINGS = {
@@ -89,21 +90,25 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+# CORS настройки для Swagger
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://10.15.15.29:8080",
+    "http://localhost:8080",  # Добавьте это
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
 
-# Статические файлы - ИСПРАВЛЕННЫЕ НАСТРОЙКИ
+# Статические файлы - ОБНОВЛЕННЫЕ НАСТРОЙКИ
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Абсолютный путь
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
 
-# Для Whitenoise
+# Убедитесь, что Whitenoise правильно настроен
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
