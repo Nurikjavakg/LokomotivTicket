@@ -12,6 +12,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'corsheaders',  # Добавьте это
     'admin_panel',
     'users',
     'payment',
@@ -21,6 +22,7 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Добавьте это первым
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -64,6 +66,11 @@ SWAGGER_SETTINGS = {
     'DEFAULT_INFO': 'lokomotivTicket.urls.schema_view',  # Добавьте эту строку
 }
 
+# Добавьте эти настройки для Redoc
+REDOC_SETTINGS = {
+    'LAZY_RENDERING': False,
+}
+
 # Настройки REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -95,6 +102,19 @@ CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
 
 CORS_ALLOW_CREDENTIALS = True
 
+# Разрешите необходимые заголовки
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -107,10 +127,14 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Добавьте настройки для медиа файлов
+# Добавьте поиск статических файлов в других директориях
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
