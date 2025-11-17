@@ -1,6 +1,7 @@
 # backend/settings/base.py
 from pathlib import Path
 from datetime import timedelta
+import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -12,7 +13,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',  # Добавьте это
+    'corsheaders',
     'admin_panel',
     'users',
     'payment',
@@ -22,7 +23,7 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Добавьте это первым
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -30,6 +31,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Добавьте это
 ]
 
 ROOT_URLCONF = 'lokomotivTicket.urls'
@@ -37,7 +39,7 @@ ROOT_URLCONF = 'lokomotivTicket.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],  # Добавьте эту строку
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -51,27 +53,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'lokomotivTicket.wsgi.application'
 
-# Обновленные настройки Swagger
+# Swagger настройки
 SWAGGER_SETTINGS = {
     'SECURITY_DEFINITIONS': {
         'Bearer': {
-            'type': 'apiKey',  
+            'type': 'apiKey',
             'name': 'Authorization',
-            'in': 'header',
-            'description': 'Введите: Bearer <ваш_jwt_токен>'
+            'in': 'header'
         }
     },
     'USE_SESSION_AUTH': False,
-    'VALIDATOR_URL': None,
-    'DEFAULT_INFO': 'lokomotivTicket.urls.schema_view',  # Добавьте эту строку
+    'JSON_EDITOR': True,
+    'DEFAULT_INFO': 'lokomotivTicket.urls.schema_view',  # Важно!
 }
 
-# Добавьте эти настройки для Redoc
 REDOC_SETTINGS = {
     'LAZY_RENDERING': False,
 }
 
-# Настройки REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
@@ -81,7 +80,6 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'DEFAULT_SCHEMA_CLASS': 'rest_framework.schemas.coreapi.AutoSchema',  # Добавьте эту строку
 }
 
 SIMPLE_JWT = {
@@ -91,29 +89,25 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
-# Настройки CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://10.15.15.29:8080",  # Добавьте ваш IP
+    "http://10.15.15.29:8080",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
 
-CORS_ALLOW_CREDENTIALS = True
-
-# Разрешите необходимые заголовки
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
+# Статические файлы - ИСПРАВЛЕННЫЕ НАСТРОЙКИ
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Абсолютный путь
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
 ]
+
+# Для Whitenoise
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -126,16 +120,5 @@ LANGUAGE_CODE = 'ru-ru'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-
-# Добавьте поиск статических файлов в других директориях
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
