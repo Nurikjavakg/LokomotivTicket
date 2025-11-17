@@ -39,3 +39,7 @@ jobs:
             docker compose down
             docker compose up -d
             docker compose exec web python manage.py migrate --noinput
+            # Правильная команда для выполнения миграций
+            docker compose exec -T web python manage.py migrate --no-input
+            # Правильная команда для сбора статики
+            docker compose exec -T web python manage.py collectstatic --no-input
