@@ -20,6 +20,8 @@ COPY . .
 # Создаем директории для статики
 RUN mkdir -p staticfiles static
 
+RUN cp -r /usr/local/lib/python3.11/site-packages/drf_yasg/static/* /app/staticfiles/ || true
+
 # Собираем статику для продакшена
 RUN python manage.py collectstatic --noinput
 
