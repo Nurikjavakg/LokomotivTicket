@@ -17,8 +17,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем весь проект в образ
 COPY . .
 
-# Создаем директорию для статики
-RUN mkdir -p staticfiles
+# Создаем директории для статики
+RUN mkdir -p staticfiles static
 
 # Собираем статику для продакшена
 RUN python manage.py collectstatic --noinput
@@ -27,5 +27,6 @@ RUN python manage.py collectstatic --noinput
 RUN useradd -m -r django && chown -R django /app
 USER django
 
-# Готовим приложение
+EXPOSE 8000
+
 CMD ["gunicorn", "lokomotivTicket.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
