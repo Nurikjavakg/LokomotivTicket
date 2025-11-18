@@ -38,4 +38,8 @@ jobs:
             docker compose pull
             docker compose down
             docker compose up -d
+            sleep 10
+            
+            # Миграции и статика
             docker compose exec web python manage.py migrate --noinput
+            docker compose exec web python manage.py collectstatic --noinput
