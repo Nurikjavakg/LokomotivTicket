@@ -18,14 +18,13 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.http import HttpResponse
 from django.conf import settings
-from django.views.static import serve  # для Swagger в продакшене
+from django.views.static import serve  # для Swagger в проде
 
 from rest_framework.routers import DefaultRouter
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
 
-# Импорты твоих вью
 from admin_panel.views import (
     DepartmentPositionViewSet,
     DepartmentPositionAutocompleteViewSet,
@@ -36,7 +35,7 @@ from admin_panel.views import (
 def home(request):
     return HttpResponse("Lokomotiv backend работает!")
 
-# Роутеры для DRF
+# Роутеры
 router = DefaultRouter()
 router.register(r'payments', PaymentConfigurationViewSet, basename='payments')
 router.register(r'departments-positions', DepartmentPositionViewSet, basename='departments-positions')
@@ -70,7 +69,7 @@ urlpatterns = [
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
 
-    # Отдаём статику drf-yasg (CSS, JS) в продакшене
+    # Статика для Swagger в продакшене
     re_path(r'^swagger/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
 
