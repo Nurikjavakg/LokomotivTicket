@@ -1,4 +1,6 @@
 # docker-compose.yml
+version: '3.9'
+
 services:
   db:
     image: postgres:15
@@ -19,19 +21,45 @@ services:
       - lokomotiv_net
 
   web:
+    # ← твой Django
     build: .
+    image: nurik345/lokomotivticket:latest
     container_name: lokomotiv_django
     restart: always
-    env_file:
-      - .env
-    ports:
-      - "8080:8000"
+    env_file: .env
+    expose:
+      - "8000"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - lokomotiv_net
+
+  frontend:    # ← будет тянуться из Docker Hub при деплое бэкенда
+    image: nurik345/lokomotivticket-frontend:latest  # закомментируй эту строку
+    container_name: lokomotiv_frontend
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - lokomotiv_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: lokomotiv_nginx
+    restart: always
+    ports:
+      - "80:80"          # теперь весь сайт на порту 80
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - static_volume:/static
+      - media_volume:/media
+    depends_on:
+      - web
+      - frontend
     networks:
       - lokomotiv_net
 
