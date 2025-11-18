@@ -1,14 +1,11 @@
 # backend/settings/prod.py
 import os
 from .base import *
-
-# Если используешь Docker, dotenv можно не использовать, переменные берутся из окружения
-# Но для локального теста можно оставить
 from dotenv import load_dotenv
 load_dotenv()  # читает .env файл (только для локального запуска)
 
 # Отключаем дебаг в продакшене
-DEBUG = False
+DEBUG = True
 
 # Разрешённые хосты
 ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost').split(',')
@@ -31,6 +28,3 @@ DATABASES = {
 # Настройки статики для продакшена
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
-
-# Если используешь collectstatic через Dockerfile
-# python manage.py collectstatic --noinput
