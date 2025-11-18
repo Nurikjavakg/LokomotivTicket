@@ -8,20 +8,19 @@ load_dotenv()  # читает .env файл (только для локальн�
 DEBUG = True
 
 # Разрешённые хосты
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
-if not SECRET_KEY:
-    raise ValueError("DJANGO_SECRET_KEY не задан в .env!")
+ALLOWED_HOSTS = ['10.15.15.29', 'localhost', '127.0.0.1']
 
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', '10.15.15.29').split(',')
+# Секретный ключ
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'fallback_local_secret_key')
 
-# База данных
+# Настройки базы данных PostgreSQL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB'),
-        'USER': os.getenv('POSTGRES_USER'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('POSTGRES_HOST', 'db'),
+        'NAME': os.getenv('POSTGRES_DB', 'lokomotiv'),
+        'USER': os.getenv('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+        'HOST': os.getenv('POSTGRES_HOST', 'db'),  # 'db' — имя сервиса из docker-compose
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
     }
 }
