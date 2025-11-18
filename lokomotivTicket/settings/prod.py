@@ -8,7 +8,7 @@ load_dotenv()  # читает .env файл (только для локальн�
 DEBUG = True
 
 # Разрешённые хосты
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost').split(',')
+ALLOWED_HOSTS = ['10.15.15.29', 'localhost', '127.0.0.1']
 
 # Секретный ключ
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'fallback_local_secret_key')
@@ -28,3 +28,4 @@ DATABASES = {
 # Настройки статики для продакшена
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
