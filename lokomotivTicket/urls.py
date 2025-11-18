@@ -18,14 +18,14 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.http import HttpResponse
 from django.conf import settings
-from django.views.static import serve  # ← это главное для Swagger в проде
+from django.views.static import serve  # для Swagger в продакшене
 
-# Твои импорты
 from rest_framework.routers import DefaultRouter
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework import permissions
 
+# Импорты твоих вью
 from admin_panel.views import (
     DepartmentPositionViewSet,
     DepartmentPositionAutocompleteViewSet,
@@ -36,7 +36,7 @@ from admin_panel.views import (
 def home(request):
     return HttpResponse("Lokomotiv backend работает!")
 
-# Роутеры
+# Роутеры для DRF
 router = DefaultRouter()
 router.register(r'payments', PaymentConfigurationViewSet, basename='payments')
 router.register(r'departments-positions', DepartmentPositionViewSet, basename='departments-positions')
@@ -54,8 +54,6 @@ schema_view = get_schema_view(
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
-    # ←←← ЭТО ГЛАВНОЕ: используем CDN вместо локальных файлов
-    patterns=urlpatterns,
 )
 
 # Основные маршруты
@@ -67,17 +65,16 @@ urlpatterns = [
     path('api/admin-panel/', include(router.urls)),
     path('api/admin-panel/', include('admin_panel.urls')),
 
-    # === Swagger + Redoc (работает в продакшене!) ===
+    # Swagger + Redoc
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     re_path(r'^swagger(?P<format>\.json|\.yaml)$', schema_view.without_ui(cache_timeout=0), name='schema-json'),
 
-    # ←←← КРИТИЧЕСКИ ВАЖНО: отдаём статику drf-yasg (CSS, JS и т.д.)
-    # Whitenoise уже обслуживает /static/, а drf-yasg кладёт свои файлы в /app/staticfiles/
+    # Отдаём статику drf-yasg (CSS, JS) в продакшене
     re_path(r'^swagger/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
 
-# Только для разработки (в продакшене DEBUG=False, так что не сработает — и правильно)
+# Только для разработки
 if settings.DEBUG:
     from django.conf.urls.static import static
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
