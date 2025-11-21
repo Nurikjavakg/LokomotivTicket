@@ -8,7 +8,7 @@ load_dotenv()  # читает .env файл (только для локальн�
 DEBUG = True
 
 # Разрешённые хосты
-ALLOWED_HOSTS = ['10.15.15.29', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['10.15.15.29', 'localhost', '127.0.0.1', '[::1]']
 
 # Секретный ключ
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'fallback_local_secret_key')
