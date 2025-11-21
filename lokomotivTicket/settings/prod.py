@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()  # читает .env файл (только для локального запуска)
 
 # Отключаем дебаг в продакшене
-DEBUG = True
+DEBUG = False
 
 # Разрешённые хосты
 ALLOWED_HOSTS = ['10.15.15.29', 'localhost', '127.0.0.1', '[::1]']
