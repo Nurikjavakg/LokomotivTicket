@@ -13,7 +13,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'corsheaders',
     'admin_panel',
     'users',
     'payment',
@@ -23,7 +22,6 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # ДОЛЖЕН быть сразу после SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -89,17 +87,6 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
-
-# CORS настройки для Swagger
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://10.15.15.29:8080",
-    "http://localhost:8080",  # Добавьте это
-]
-
-CORS_ALLOW_ALL_ORIGINS = True  # Для разработки
 
 # Статические файлы - ОБНОВЛЕННЫЕ НАСТРОЙКИ
 STATIC_URL = '/static/'
