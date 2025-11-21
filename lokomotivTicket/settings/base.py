@@ -61,9 +61,7 @@ SWAGGER_SETTINGS = {
         }
     },
     'USE_SESSION_AUTH': False,
-    'JSON_EDITOR': True,
-    'DEFAULT_API_URL': 'http://localhost:8080',  # Добавьте это
-    'VALIDATOR_URL': None,  # Отключите валидатор
+    'JSON_EDITOR': True
 }
 
 REDOC_SETTINGS = {
