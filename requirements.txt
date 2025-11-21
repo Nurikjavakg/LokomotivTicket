@@ -34,5 +34,4 @@ wcwidth==0.2.14
 
 gunicorn
 python-dotenv>=1.0
-django-cors-headers==4.3.1
 whitenoise==6.7.0
