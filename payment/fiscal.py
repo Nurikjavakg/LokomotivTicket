@@ -102,7 +102,7 @@ def fiscalize_payment(payment):
     # === Формируем товары ===
     goods = []
 
-    # Взрослые: цена за 1 час, количество = билеты × часы
+
     if payment.amount_adult > 0:
         price_per_hour = float(config.adult_price_per_hour)
         total_hours = payment.amount_adult * payment.hours
@@ -116,7 +116,7 @@ def fiscalize_payment(payment):
             "vat": 0
         })
 
-    # Детские
+
     if payment.amount_child > 0:
         price_per_hour = float(config.child_price_per_hour)
         total_hours = payment.amount_child * payment.hours
@@ -130,7 +130,7 @@ def fiscalize_payment(payment):
             "vat": 0
         })
 
-    # Прокат
+
     if payment.skate_rental > 0:
         goods.append({
             "calcItemAttributeCode": 1,
@@ -142,7 +142,7 @@ def fiscalize_payment(payment):
             "vat": 0
         })
 
-    # Инструктор
+
     if payment.instructor_service:
         goods.append({
             "calcItemAttributeCode": 1,
@@ -154,7 +154,7 @@ def fiscalize_payment(payment):
             "vat": 0
         })
 
-    # === Скидка ===
+
     if payment.percent > 0:
         subtotal = sum(g["price"] * g["quantity"] for g in goods)
         discount = subtotal * (payment.percent / 100)
