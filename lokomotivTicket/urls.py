@@ -52,7 +52,9 @@ schema_view = get_schema_view(
         license=openapi.License(name="BSD License"),
     ),
     public=True,
+    url='http://10.15.15.29',
     permission_classes=(permissions.AllowAny,),
+    validators=['ssv', 'flex'], 
 )
 
 # Основные маршруты
