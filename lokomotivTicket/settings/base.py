@@ -22,7 +22,6 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # ДОЛЖЕН быть сразу после SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
