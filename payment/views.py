@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 from rest_framework.status import HTTP_404_NOT_FOUND
 
+from .fiscal import logger
 from .models import Payment, SessionSkating, PaymentConfiguration
 from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer, \
     OperatorSerializerOne
@@ -169,6 +170,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
                     payment.status = 'COMPLETED'
                     payment.save()
 
+                    from .fiscal import fiscalize_payment
+
+                    fiscal_result = fiscalize_payment(payment)
+                    if not fiscal_result["success"] and not fiscal_result.get("already_done"):
+                        logger.warning(f"Не удалось выбить чек для {payment.cheque_code}: {fiscal_result['error']}")
+
                     return Response({
                        "category": "Сотрудник" if payment.is_employee else "Обычный клиент",
                        "employee_name": payment.employee_name or "",
@@ -273,11 +280,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         serializer= OperatorSerializer
 
-        return Response({
+        data = {
             'waiting': serializer(waiting, many=True).data,
-            'in_progress': serializer(in_progress, many= True).data,
+            'in_progress': serializer(in_progress, many=True).data,
             'time_expired': serializer(time_expired, many=True).data,
-        }) 
+        }
+
+        response = Response(data)
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
     @swagger_auto_schema(
             operation_summary='Начать сеанс катания',
             operation_description="""
@@ -297,9 +310,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'error': 'Платеж не найден'
             }, status= status.HTTP_404_NOT_FOUND)
 
-        if request.user.role != 'OPERATOR':
+        if request.user.role != Role.OPERATOR and request.user.role != Role.ADMIN:
             return Response ({
-                'error': 'Только оператор может начать сеанс'}, status= status.HTTP_403_FORBIDDEN
+                'error': 'Только оператор или администратор может начать сеанс'}, status= status.HTTP_403_FORBIDDEN
             )
         
         if payment.status != PaymentStatus.COMPLETED:
@@ -364,8 +377,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
             }, status= status.HTTP_404_NOT_FOUND)
 
         
-        if request.user.role != 'OPERATOR':
-            return Response({'error': 'Только оператор может завершать сеансы'}, 
+        if request.user.role != Role.OPERATOR and request.user.role != Role.ADMIN:
+            return Response({'error': 'Только оператор или администратор может завершать сеансы'},
                           status=status.HTTP_403_FORBIDDEN)
         
         if payment.skating_status != SessionStatus.TIME_EXPIRED:
@@ -398,8 +411,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
         except Payment.DoesNotExist:
             return Response({'error': 'Платеж не найден'}, status= status.HTTP_404_NOT_FOUND)
         
-        if request.user.role != Role.OPERATOR:
-            return Response({'error': 'Только оператор может завершить сеанс'} , status= status.HTTP_403_FORBIDDEN)
+        if request.user.role != Role.OPERATOR and request.user.role != Role.ADMIN:
+            return Response({'error': 'Только оператор или администратор может завершить сеанс'} , status= status.HTTP_403_FORBIDDEN)
 
         if payment.skating_status not in [SessionStatus.IN_PROGRESS, SessionStatus.TIME_EXPIRED]:
             return Response({'error':'Можно завершить только активные сеансы'}, status= status.HTTP_400_BAD_REQUEST)

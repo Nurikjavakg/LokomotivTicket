@@ -74,6 +74,10 @@ class Payment(models.Model):
     skating_status = models.CharField(max_length=20, choices=SessionStatus.choices, default=SessionStatus.WAITING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    fiscalized= models.BooleanField(default=False)
+    fiscal_uuid = models.CharField(max_length=100,null=True,blank=True)
+    fiscal_error = models.TextField(null=True, blank=True)
     
     def __str__(self):
         return f"Payment {self.cheque_code} - {self.total_amount}"

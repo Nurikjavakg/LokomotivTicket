@@ -124,6 +124,13 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
+EKASSA_HOST = "https://ofddev.ekassa.kg"
+EKASSA_EMAIL = "248#test77@tmg.kg"
+EKASSA_PASSWORD = "meJWNYRD"
+EKASSA_FISCAL_NUMBER = "0000000000022030"
+
+
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
