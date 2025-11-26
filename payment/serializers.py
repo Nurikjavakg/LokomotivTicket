@@ -34,13 +34,34 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         return data
 
 class OperatorSerializer(serializers.ModelSerializer):
+    time_remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
         fields = [
             'id','ticket_number','amount_adult', 'amount_child',
+            'time_remaining'
 
         ]
+
+    def get_time_remaining(self, obj):
+
+        if (obj.skating_status == SessionStatus.IN_PROGRESS and
+                hasattr(obj, 'session') and
+                obj.session.start_time):
+            session_end = obj.session.start_time + timezone.timedelta(hours=obj.hours)
+            remaining = session_end - timezone.now()
+            return max(0, int(remaining.total_seconds() / 60))
+        return 0
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        if instance.skating_status in [SessionStatus.WAITING, SessionStatus.TIME_EXPIRED]:
+            data.pop('time_remaining', None)
+
+
+        return data
 
 class OperatorSerializerOne(serializers.ModelSerializer):
     start_time = serializers.DateTimeField(source='session.start_time', read_only=True)
@@ -78,7 +99,6 @@ class OperatorSerializerOne(serializers.ModelSerializer):
         data = super().to_representation(instance)
 
         if instance.skating_status == SessionStatus.WAITING:
-            data.pop('time_remaining',None)
             data.pop('session_info',None)
             data.pop('start_time',None)
             data.pop('end_time',None)

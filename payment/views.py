@@ -280,11 +280,17 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
         serializer= OperatorSerializer
 
-        return Response({
+        data = {
             'waiting': serializer(waiting, many=True).data,
-            'in_progress': serializer(in_progress, many= True).data,
+            'in_progress': serializer(in_progress, many=True).data,
             'time_expired': serializer(time_expired, many=True).data,
-        }) 
+        }
+
+        response = Response(data)
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
     @swagger_auto_schema(
             operation_summary='Начать сеанс катания',
             operation_description="""
