@@ -117,6 +117,7 @@ def fiscalize_payment(payment):
     logger.info("Смена готова — бьём чек")
 
     # === ТОВАРЫ ===
+
     from .models import PaymentConfiguration
     config = PaymentConfiguration.load()
 
@@ -215,21 +216,33 @@ def fiscalize_payment(payment):
 
     try:
         logger.info(f"ОТПРАВКА ЧЕКА: {payment.cheque_code} | сумма: {payment.total_amount}")
-        resp = _requests_session.post(url, json=payload, headers=headers, timeout=15)  # ← _requests_session!
+        resp = _requests_session.post(url, json=payload, headers=headers, timeout=15)
         result = resp.json()
 
-        if resp.status_code == 200 and (result.get("success") or "id" in result):
-            fiscal_id = result.get("id") or result.get("data", {}).get("id")
+
+        if resp.status_code == 200 and result.get("status") == "Success":
+            data = result.get("data", {})
+            fiscal_id = data.get("id")
+            fiscal_link = data.get("link", "")
+
             payment.fiscalized = True
             payment.fiscal_uuid = fiscal_id
-            payment.save(update_fields=['fiscalized', 'fiscal_uuid'])
-            logger.info(f"ЧЕК УСПЕШНО ВЫБИТ! ID: {fiscal_id}")
-            return {"success": True, "fiscal_id": fiscal_id}
+            payment.fiscal_link = fiscal_link
+            payment.save(update_fields=['fiscalized', 'fiscal_uuid', 'fiscal_link'])
+
+            logger.info(f"ЧЕК УСПЕШНО ПРОБИТ! UUID: {fiscal_id} | Ссылка: {fiscal_link}")
+            return {
+                "success": True,
+                "fiscal_id": fiscal_id,
+                "fiscal_link": fiscal_link
+            }
+
         else:
-            error = result.get("message") or result.get("error") or "Unknown"
-            logger.error(f"eKassa error: {error} | full response: {result}")
-            return {"success": False, "error": error}
+            # Любой другой случай (ошибка или странный ответ)
+            error_msg = result.get("message") or result.get("error") or str(result)
+            logger.error(f"eKassa не дал успех: {error_msg}")
+            return {"success": False, "error": error_msg}
 
     except Exception as e:
-        logger.exception("Чек не ушёл")
+        logger.exception("Исключение при пробитии чека")
         return {"success": False, "error": str(e)}
