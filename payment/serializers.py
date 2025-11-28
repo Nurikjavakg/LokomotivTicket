@@ -76,6 +76,7 @@ class OperatorSerializerOne(serializers.ModelSerializer):
         ]
 
     def get_time_remaining(self, obj):
+
        
         if (obj.skating_status == SessionStatus.IN_PROGRESS and 
             hasattr(obj, 'session') and 
@@ -102,6 +103,10 @@ class OperatorSerializerOne(serializers.ModelSerializer):
             data.pop('session_info',None)
             data.pop('start_time',None)
             data.pop('end_time',None)
+
+        if instance.skating_status == SessionStatus.TIME_EXPIRED:
+            data.pop('session_info',None)
+            data.pop('time_remaining',None)
 
 
         return data
@@ -134,3 +139,8 @@ class ReportSerializer(serializers.ModelSerializer):
         
     def get_session_duration(self, obj):
         return f"{obj.hours} ч"
+
+class OperatorSerializerWaiting(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ['id', 'ticket_number', 'amount_adult', 'amount_child', 'hours']

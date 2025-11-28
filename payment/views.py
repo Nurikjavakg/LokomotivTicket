@@ -10,7 +10,7 @@ from .models import Payment, SessionSkating, PaymentConfiguration
 from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, ReportSerializer, \
     OperatorSerializerOne
 from .models import Payment, SessionSkating
-from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, OperatorSerializerOne
+from .serializers import PaymentSerializer, PaymentCreateSerializer, OperatorSerializer, OperatorSerializerOne, OperatorSerializerWaiting
 from .services import PaymentService, MegaPayService
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -73,6 +73,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
             return Response ({'error': 'Платеж не найден'}, status= status.HTTP_404_NOT_FOUND)
 
         serializer = OperatorSerializerOne(payment)
+        if payment.skating_status == SessionStatus.WAITING:
+            serializer = OperatorSerializerWaiting(payment)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
     def get_serializer_class(self):
@@ -279,11 +281,12 @@ class PaymentViewSet(viewsets.ModelViewSet):
         time_expired = completed_payments.filter(skating_status = SessionStatus.TIME_EXPIRED)
 
         serializer= OperatorSerializer
+        serializerOne=OperatorSerializerOne
 
         data = {
             'waiting': serializer(waiting, many=True).data,
             'in_progress': serializer(in_progress, many=True).data,
-            'time_expired': serializer(time_expired, many=True).data,
+            'time_expired': serializerOne(time_expired, many=True).data,
         }
 
         response = Response(data)
