@@ -40,7 +40,7 @@ class OperatorSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             'id','ticket_number','amount_adult', 'amount_child',
-            'time_remaining'
+            'time_remaining', 'skating_status'
 
         ]
 
@@ -71,7 +71,7 @@ class OperatorSerializerOne(serializers.ModelSerializer):
         model = Payment
         fields = [
             'id', 'ticket_number','amount_adult','amount_child',
-            'start_time','end_time','hours','time_remaining'
+            'start_time','end_time','hours','time_remaining', 'skating_status'
 
         ]
 
@@ -143,4 +143,4 @@ class ReportSerializer(serializers.ModelSerializer):
 class OperatorSerializerWaiting(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ['id', 'ticket_number', 'amount_adult', 'amount_child', 'hours']
+        fields = ['id', 'ticket_number', 'amount_adult', 'amount_child', 'hours', 'skating_status']
