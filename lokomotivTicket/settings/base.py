@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'users',
     'payment',
     'drf_yasg', 
+    'corsheaders',
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -25,6 +26,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # ДОЛЖЕН быть сразу после SecurityMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -79,12 +81,20 @@ REST_FRAMEWORK = {
     ),
 }
 
+REST_USE_JWT = True
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CORS_ALLOW_CREDENTIALS = True
 
 # Статические файлы - ОБНОВЛЕННЫЕ НАСТРОЙКИ
 STATIC_URL = '/static/'

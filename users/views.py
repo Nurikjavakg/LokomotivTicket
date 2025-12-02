@@ -125,19 +125,36 @@ def login_view(request):
 
     user = authenticate(username = username, password = password)
 
-    if user:
-        refresh = RefreshToken.for_user(user)
+    if not user:
+        return Response({"error": "неверные учетные данные"},
+                        status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'user': UserSerializer(user).data
-            })
-        
-    else: 
-        return Response({
-            'error': 'неверные учетные данные'}, status= status.HTTP_400_BAD_REQUEST
-        )
+    refresh = RefreshToken.for_user(user)
+    access = refresh.access_token
+
+    response = Response({
+        "user": UserSerializer(user).data
+        # НЕ возвращаем токены в JSON — безопасность!
+    })
+
+    # --- Устанавливаем HttpOnly cookie ---
+    response.set_cookie(
+        key="access",
+        value=str(access),
+        httponly=True,
+        samesite="Lax",
+        secure=False        # поставь True в продакшене с HTTPS
+    )
+
+    response.set_cookie(
+        key="refresh",
+        value=str(refresh),
+        httponly=True,
+        samesite="Lax",
+        secure=False
+    )
+
+    return response
 
 class AdminUserCreateView(generics.CreateAPIView):
     serializer_class = AdminUserCreateSerializer

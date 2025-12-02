@@ -26,7 +26,7 @@ SECRET_KEY = 'KG-RAILWAY-LOKOMOTIV-2025.11.02-TRUE'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -43,12 +43,14 @@ INSTALLED_APPS = [
     'users',
     'payment',
     'drf_yasg', 
+    'corsheaders',
 ]
 AUTH_USER_MODEL = 'users.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -96,7 +98,7 @@ DATABASES = {
         'NAME': 'lokomotiv',
         'USER': 'postgres',
         'PASSWORD': '1234',
-        'HOST': 'localhost',
+        'HOST': 'db',
         'PORT': '5432',
     }
 }
@@ -113,16 +115,21 @@ REST_FRAMEWORK = {
     ),
 }
 
+REST_USE_JWT = True
+
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Короткий
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),      # Длинный
     'ROTATE_REFRESH_TOKENS': True,                    # Новый refresh при обновлении
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
 # Настройки CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
+
+CORS_ALLOW_CREDENTIALS = True
 
 EKASSA_HOST = "https://ofddev.ekassa.kg"
 EKASSA_EMAIL = "248#test77@tmg.kg"
