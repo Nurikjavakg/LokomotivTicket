@@ -5,6 +5,7 @@ from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
 from typing import Optional
+from .models import PaymentConfiguration
 
 logger = logging.getLogger(__name__)
 
@@ -112,94 +113,117 @@ def fiscalize_payment(payment):
     if payment.fiscalized:
         return {"success": True, "already_done": True}
 
-    # === СМЕНА: ОТКРЫВАЕМ (ИЛИ ПОДТВЕРЖДАЕМ, ЧТО ОТКРЫТА) ===
-    open_shift()  # ← ПРОСТО ВЫЗЫВАЕМ — НЕ ПАДАЕМ!
-    logger.info("Смена готова — бьём чек")
+    open_shift()
 
-    # === ТОВАРЫ ===
-
-    from .models import PaymentConfiguration
     config = PaymentConfiguration.load()
-
     goods = []
 
+    # Цены в тыйынах
+    adult_price_tiins   = int(config.adult_price_per_hour * 100)
+    child_price_tiins    = int(config.child_price_per_hour * 100)
+    skate_price_tiins    = int(config.skate_rental_price * 100)
+    instructor_price_tiins = int(config.instructor_price * 100)
+
+    total_people = payment.amount_adult + payment.amount_child
+    is_employee_discount = (payment.is_employee and total_people >= 3)
+
+    # === ВЗРОСЛЫЕ ===
     if payment.amount_adult > 0:
-        price_per_person = float(config.adult_price_per_hour) * payment.hours  # 500 × 2 = 1000
-        goods.append({
-            "calcItemAttributeCode": 1,
-            "name": f"Билет взрослый × {payment.amount_adult} чел. × {payment.hours} ч",
-            "price": price_per_person,  # ← цена за одного человека на всё время
-            "quantity": payment.amount_adult,  # ← количество человек
-            "unit": "шт.",
-            "st": 0,
-            "vat": 0,
-            "sgtin": None
-        })
+        adults_disc = min(payment.amount_adult, 3) if is_employee_discount else 0
+        adults_full = payment.amount_adult - adults_disc
 
+        # Со скидкой 50%
+        if adults_disc > 0:
+            price_disc = int(adult_price_tiins * payment.hours * 0.5)
+            goods.append({
+                "calcItemAttributeCode": 1,
+                "name": f"Билет взрослый × {adults_disc} чел. × {payment.hours} ч | Скидка 50% (сотрудник + 2 гостя)",
+                "price": price_disc,
+                "quantity": adults_disc,
+                "unit": "шт.",
+                "st": 0, "vat": 0, "sgtin": None
+            })
+
+        # Без скидки
+        if adults_full > 0:
+            price_full = adult_price_tiins * payment.hours
+            goods.append({
+                "calcItemAttributeCode": 1,
+                "name": f"Билет взрослый × {adults_full} чел. × {payment.hours} ч",
+                "price": price_full,
+                "quantity": adults_full,
+                "unit": "шт.",
+                "st": 0, "vat": 0, "sgtin": None
+            })
+
+    # === ДЕТИ ===
     if payment.amount_child > 0:
-        price_per_person = float(config.child_price_per_hour) * payment.hours
-        goods.append({
-            "calcItemAttributeCode": 1,
-            "name": f"Билет детский × {payment.amount_child} чел. × {payment.hours} ч",
-            "price": price_per_person,
-            "quantity": payment.amount_child,
-            "unit": "шт.",
-            "st": 0,
-            "vat": 0,
-            "sgtin": None
-        })
+        remaining_disc = 3 - min(payment.amount_adult, 3) if is_employee_discount else 0
+        child_disc = min(payment.amount_child, max(0, remaining_disc))
+        child_full = payment.amount_child - child_disc
 
+        if child_disc > 0:
+            price_disc = int(child_price_tiins * payment.hours * 0.5)
+            goods.append({
+                "calcItemAttributeCode": 1,
+                "name": f"Билет детский × {child_disc} чел. × {payment.hours} ч | Скидка 50% (сотрудник + 2 гостя)",
+                "price": price_disc,
+                "quantity": child_disc,
+                "unit": "шт.",
+                "st": 0, "vat": 0, "sgtin": None
+            })
+
+        if child_full > 0:
+            price_full = child_price_tiins * payment.hours
+            goods.append({
+                "calcItemAttributeCode": 1,
+                "name": f"Билет детский × {child_full} чел. × {payment.hours} ч",
+                "price": price_full,
+                "quantity": child_full,
+                "unit": "шт.",
+                "st": 0, "vat": 0, "sgtin": None
+            })
+
+    # === ДОП.УСЛУГИ ===
     if payment.skate_rental > 0:
         goods.append({
             "calcItemAttributeCode": 1,
             "name": f"Прокат коньков × {payment.skate_rental}",
-            "price": float(config.skate_rental_price),
+            "price": skate_price_tiins,
             "quantity": payment.skate_rental,
             "unit": "шт.",
-            "st": 0,
-            "vat": 0,
-            "sgtin": None
+            "st": 0, "vat": 0, "sgtin": None
         })
 
     if payment.instructor_service:
         goods.append({
             "calcItemAttributeCode": 1,
             "name": "Услуга инструктора",
-            "price": float(config.instructor_price),
+            "price": instructor_price_tiins,
             "quantity": 1,
             "unit": "шт.",
-            "st": 0,
-            "vat": 0,
-            "sgtin": None
+            "st": 0, "vat": 0, "sgtin": None
         })
 
-    if payment.percent > 0:
-        subtotal = sum(g["price"] * g["quantity"] for g in goods)
-        discount = subtotal * (payment.percent / 100)
-        goods.append({
-            "calcItemAttributeCode": 1,
-            "name": f"Скидка {payment.percent}%",
-            "price": -discount,
-            "quantity": 1,
-            "unit": "шт.",
-            "st": 0,
-            "vat": 0,
-            "sgtin": None
-        })
+    # === СОХРАНЯЕМ % ДЛЯ ФРОНТА ===
+    payment.percent = 50 if is_employee_discount else 0
+    payment.save(update_fields=['percent'])
 
-    # === PAYLOAD (добавил недостающее для eKassa) ===
+    # === PAYLOAD — ТАЛОН № ТОЛЬКО КАК ТЕКСТ СВЕРХУ ===
     payload = {
         "fiscal_number": EKASSA_FISCAL_NUMBER,
         "txt": True,
         "cash": False,
         "operation": "INCOME",
-        "received": float(payment.total_amount),
+        "received": int(payment.total_amount * 100),
         "goods": goods,
-        "company": {  # ← ЭТО МОЖЕТ БЫТЬ КЛЮЧЕВОЙ! (ИНН, СНО)
-            "inn": "0000000000022030",  # ← твой ИНН или fiscal_number
-            "sno": "osn"  # или "usn_income" — спроси у Эламана
-        }
+        "company": {
+            "inn": "0000000000022030",
+            "sno": "osn"
+        },
+        "description": f"Талон № {payment.ticket_number or '—'}\n"
     }
+
     if payment.user.email:
         payload["customerContact"] = payment.user.email
 
@@ -207,42 +231,36 @@ def fiscalize_payment(payment):
     if not token:
         return {"success": False, "error": "Auth failed"}
 
-    url = f"{EKASSA_HOST}/api/v2/receipt"
     headers = {
         "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
 
     try:
-        logger.info(f"ОТПРАВКА ЧЕКА: {payment.cheque_code} | сумма: {payment.total_amount}")
-        resp = _requests_session.post(url, json=payload, headers=headers, timeout=15)
+        resp = _requests_session.post(
+            f"{EKASSA_HOST}/api/v2/receipt",
+            json=payload,
+            headers=headers,
+            timeout=15
+        )
         result = resp.json()
-
 
         if resp.status_code == 200 and result.get("status") == "Success":
             data = result.get("data", {})
-            fiscal_id = data.get("id")
-            fiscal_link = data.get("link", "")
-
             payment.fiscalized = True
-            payment.fiscal_uuid = fiscal_id
-            payment.fiscal_link = fiscal_link
+            payment.fiscal_uuid = data.get("id")
+            payment.fiscal_link = data.get("link", "")
             payment.save(update_fields=['fiscalized', 'fiscal_uuid', 'fiscal_link'])
-
-            logger.info(f"ЧЕК УСПЕШНО ПРОБИТ! UUID: {fiscal_id} | Ссылка: {fiscal_link}")
-            return {
-                "success": True,
-                "fiscal_id": fiscal_id,
-                "fiscal_link": fiscal_link
-            }
+            return {"success": True, "fiscal_id": data.get("id"), "fiscal_link": data.get("link")}
 
         else:
-            # Любой другой случай (ошибка или странный ответ)
-            error_msg = result.get("message") or result.get("error") or str(result)
-            logger.error(f"eKassa не дал успех: {error_msg}")
-            return {"success": False, "error": error_msg}
+            error_msg = str(result).lower()
+            if "shift must be closed" in error_msg or "смена" in error_msg:
+                close_shift()
+                open_shift()
+                return fiscalize_payment(payment)
+            return {"success": False, "error": result.get("message", "Unknown error")}
 
     except Exception as e:
-        logger.exception("Исключение при пробитии чека")
         return {"success": False, "error": str(e)}
