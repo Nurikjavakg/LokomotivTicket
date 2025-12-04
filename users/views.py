@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -25,10 +26,10 @@ class ProfileView(generics.RetrieveAPIView):
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
-    
+
     def get_object(self):
         return self.request.user
- 
+
 @swagger_auto_schema(
     method='post',
     operation_description="""
@@ -45,11 +46,11 @@ class ProfileView(generics.RetrieveAPIView):
         required=['username', 'password'],
         properties={
             'username': openapi.Schema(
-                type=openapi.TYPE_STRING, 
+                type=openapi.TYPE_STRING,
                 description='Имя пользователя'
             ),
             'password': openapi.Schema(
-                type=openapi.TYPE_STRING, 
+                type=openapi.TYPE_STRING,
                 description='Пароль',
                 format='password'
             ),
@@ -66,7 +67,7 @@ class ProfileView(generics.RetrieveAPIView):
                         description='Refresh токен'
                     ),
                     'access': openapi.Schema(
-                        type=openapi.TYPE_STRING, 
+                        type=openapi.TYPE_STRING,
                         description='Access токен'
                     ),
                     'user': openapi.Schema(
@@ -115,7 +116,7 @@ class ProfileView(generics.RetrieveAPIView):
             description="Внутренняя ошибка сервера"
         )
     }
-    
+
 )
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -123,22 +124,58 @@ def login_view(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
-    user = authenticate(username = username, password = password)
+    user = authenticate(username=username, password=password)
 
-    if user:
-        refresh = RefreshToken.for_user(user)
-
+    if not user:
         return Response({
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'user': UserSerializer(user).data
-            })
-        
-    else: 
-        return Response({
-            'error': 'неверные учетные данные'}, status= status.HTTP_400_BAD_REQUEST
-        )
+            'error': 'неверные учетные данные'
+        }, status=status.HTTP_401_UNAUTHORIZED)
 
+
+    refresh = RefreshToken.for_user(user)
+    access_token = str(refresh.access_token)
+
+
+    response = Response({
+        'isAuthorized': True,
+        'access': access_token,
+        'refresh': str(refresh),
+        'user': UserSerializer(user).data
+    }, status=status.HTTP_200_OK)
+
+
+    response.set_cookie(
+        key='access_token',
+        value=access_token,
+        max_age=60 * 60 * 24,
+        expires=None,
+        path='/',
+        domain=None,
+        secure=True,
+        httponly=True,
+        samesite='Lax'
+    )
+
+
+    response.set_cookie(
+        key='refresh_token',
+        value=str(refresh),
+        max_age=60 * 60 * 24 * 30,
+        secure=True,
+        httponly=True,
+        samesite='Lax',
+        path='/'
+    )
+
+    return response
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # автоматически проверит access_token из cookie
+def check_auth(request):
+    return Response({
+        'isAuthorized': True,
+        'user': UserSerializer(request.user).data
+    })
 class AdminUserCreateView(generics.CreateAPIView):
     serializer_class = AdminUserCreateSerializer
     permission_classes =[permissions.IsAdminUser]
@@ -148,9 +185,11 @@ class AdminUserCreateView(generics.CreateAPIView):
             request_body= AdminUserCreateSerializer,
             responses={200:openapi.Response('Сотрудник создан')}
     )
+
+
     def post(self, request, *args, **kwargs):
         return super().post(request, *args, **kwargs)
-    
+
     def create(self, request, *args, **kwargs):
         role = request.data.get('role')
 
@@ -159,6 +198,5 @@ class AdminUserCreateView(generics.CreateAPIView):
                 'error': "Можно создавать только Кассира, Оператора, Админа или Сотрудника"},
                 status= status.HTTP_400_BAD_REQUEST
                 )
-        
-        return super().create(request, *args, **kwargs) 
-    
+
+        return super().create(request, *args, **kwargs)

@@ -119,10 +119,22 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,                    # Новый refresh при обновлении
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
 # Настройки CORS
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'close-shift-every-day': {
+        'task': 'payment.tasks.auto_close_shift',
+        'schedule': crontab(hour=23, minute=55),  # каждый день в 23:55
+    },
+}
 
 EKASSA_HOST = "https://ofddev.ekassa.kg"
 EKASSA_EMAIL = "248#test77@tmg.kg"
