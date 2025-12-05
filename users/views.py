@@ -1,9 +1,11 @@
 from rest_framework import generics, permissions, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from rest_framework_simplejwt.views import TokenRefreshView
+
 from .models import User, Role
 from .serializers import UserSerializer, RegisterSerializer, AdminUserCreateSerializer
 from drf_yasg.utils import swagger_auto_schema
@@ -119,63 +121,81 @@ class ProfileView(generics.RetrieveAPIView):
 
 )
 @api_view(['POST'])
-@permission_classes([permissions.AllowAny])
+@permission_classes([AllowAny])
 def login_view(request):
     username = request.data.get('username')
     password = request.data.get('password')
 
     user = authenticate(username=username, password=password)
-
     if not user:
-        return Response({
-            'error': 'неверные учетные данные'
-        }, status=status.HTTP_401_UNAUTHORIZED)
-
+        return Response({'error': 'неверные учетные данные'}, status=401)
 
     refresh = RefreshToken.for_user(user)
     access_token = str(refresh.access_token)
-
+    refresh_token = str(refresh)
 
     response = Response({
         'isAuthorized': True,
         'access': access_token,
-        'refresh': str(refresh),
         'user': UserSerializer(user).data
-    }, status=status.HTTP_200_OK)
-
-
-    response.set_cookie(
-        key='access_token',
-        value=access_token,
-        max_age=60 * 60 * 24,
-        expires=None,
-        path='/',
-        domain=None,
-        secure=True,
-        httponly=True,
-        samesite='Lax'
-    )
+    })
 
 
     response.set_cookie(
         key='refresh_token',
-        value=str(refresh),
-        max_age=60 * 60 * 24 * 30,
-        secure=True,
+        value=refresh_token,
         httponly=True,
+        secure=True,
         samesite='Lax',
-        path='/'
+        path='/',
+        max_age=60 * 60 * 24 * 30
     )
 
     return response
 
+
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])  # автоматически проверит access_token из cookie
+@permission_classes([IsAuthenticated])
 def check_auth(request):
     return Response({
         'isAuthorized': True,
         'user': UserSerializer(request.user).data
     })
+
+
+class CookieTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+
+        refresh_token = request.COOKIES.get('refresh_token')
+
+        if not refresh_token:
+            return Response(
+                {"error": "Refresh token not found in cookie"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+
+        mutable_data = request.data.copy()
+        mutable_data['refresh'] = refresh_token
+        request._full_data = mutable_data
+
+
+        response = super().post(request, *args, **kwargs)
+
+
+        if response.status_code == 200 and 'refresh' in response.data:
+            response.set_cookie(
+                key='refresh_token',
+                value=response.data['refresh'],
+                httponly=True,
+                secure=True,           # на проде True
+                samesite='Lax',
+                path='/',
+                max_age=60*60*24*30    # 30 дней
+            )
+
+
+        return response
 class AdminUserCreateView(generics.CreateAPIView):
     serializer_class = AdminUserCreateSerializer
     permission_classes =[permissions.IsAdminUser]
