@@ -450,7 +450,23 @@ class PaymentViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(
             operation_summary='Получить отчет',
-            operation_description='Получение детального отчета по завершенным платежам'
+            operation_description='Получение детального отчета по завершенным платежам',
+        manual_parameters=[
+            openapi.Parameter(
+                name='from_date',
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_DATE,
+                description='Дата начала (YYYY-MM-DD)'
+            ),
+            openapi.Parameter(
+                name='to_date',
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_DATE,
+                description='Дата окончания (YYYY-MM-DD)'
+            ),
+        ]
     )
     @action(detail=False, methods=['get'], url_path='session-report')
     def get_all_finished_payment(self, request):
