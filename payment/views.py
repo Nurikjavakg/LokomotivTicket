@@ -3,7 +3,7 @@ from rest_framework import status, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
-from rest_framework.status import HTTP_404_NOT_FOUND
+from rest_framework.status import HTTP_404_NOT_FOUND, HTTP_403_FORBIDDEN
 
 from .fiscal import logger
 from .models import Payment, SessionSkating, PaymentConfiguration
@@ -23,7 +23,7 @@ from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from .models import Payment, SessionSkating
-from .serializers import PaymentSerializer, PaymentCreateSerializer
+from .serializers import PaymentSerializer, PaymentCreateSerializer, SessionSerializerForReport
 from users.models import Department, Position
 from .services import PaymentService, MegaPayService
 import uuid
@@ -76,6 +76,21 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if payment.skating_status == SessionStatus.WAITING:
             serializer = OperatorSerializerWaiting(payment)
         return Response(serializer.data,status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary='Получение сеанса по ID для отчета',
+        operation_description='Возвращает данные платежа для отчета'
+    )
+    @action(detail=True, methods=['get'], url_path='get-session-for-report')
+    def get_session_by_id_for_report(self, request, pk=None):
+
+        try:
+            payment = Payment.objects.select_related('session').get(id=pk)
+        except Payment.DoesNotExist:
+            return Response({'error': 'Платеж не найден'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SessionSerializerForReport(payment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -241,6 +256,60 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 'error': str(e)
 
             }, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        method='delete',
+        operation_summary='Массовое удаление платежей',
+        operation_description='Удаляет несколько платежей по списку ID. Доступно только администратору.',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['payment_ids'],
+            properties={
+                'payment_ids': openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(type=openapi.TYPE_INTEGER),
+                    description='Список ID платежей для удаления'
+                )
+            },
+            example={"payment_ids": [1,2,3]}
+        ),
+        responses={
+            200: openapi.Response('Успешно удалено', examples={"application/json": {"deleted_count": 3}}),
+            403: "Доступ запрещён",
+            400: "Неверный формат"
+        }
+    )
+    @action(detail=False, methods=['delete'], url_path='delete_selected')
+    def bulk_delete_payments(self, request):
+        if request.user.role != Role.ADMIN:
+            return Response({
+                'error': 'Удаление платежей доступна только администратору'}, status=status.HTTP_403_FORBIDDEN)
+
+        payment_ids = request.data.get('payment_ids')
+
+        if not payment_ids or not isinstance(payment_ids, (list, tuple)):
+            return Response(
+                {'error': 'Необходимо передать массив payment_ids'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        deleted_payments, details = Payment.objects.filter(
+            id__in=payment_ids,
+            skating_status=SessionStatus.FINISHED,
+            status=PaymentStatus.COMPLETED).delete()
+
+        real_deleted_payments = details.get('payment.Payment', 0)
+
+        if real_deleted_payments == 0:
+            return Response(
+                {'error': 'Платежи не найдены'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            'deleted_count': real_deleted_payments,
+            'message': f'Успешно удалено {real_deleted_payments} платежей'
+        }, status=status.HTTP_200_OK)
         
     @swagger_auto_schema(
     operation_summary="Дашборд оператора",
@@ -441,17 +510,10 @@ class PaymentViewSet(viewsets.ModelViewSet):
             'previous_status': previous_status,
             'reason': 'Принудительное завершение оператором'
         })
-
-
-
-
-
-    
-
     @swagger_auto_schema(
             operation_summary='Получить отчет',
             operation_description='Получение детального отчета по завершенным платежам',
-        manual_parameters=[
+            manual_parameters=[
             openapi.Parameter(
                 name='from_date',
                 in_=openapi.IN_QUERY,
@@ -470,58 +532,60 @@ class PaymentViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'], url_path='session-report')
     def get_all_finished_payment(self, request):
-
         if request.user.role != Role.ADMIN:
-            return Response ({'error':'Доступна только администратором'},status= status.HTTP_403_FORBIDDEN)
-        
-        from_date= request.GET.get('from_date')
-        to_date= request.GET.get('to_date')
+            return Response({'error': 'Доступно только администратором'}, status=status.HTTP_403_FORBIDDEN)
 
-        finished_skates= Payment.objects.filter(
-            skating_status = SessionStatus.FINISHED,
-            status= PaymentStatus.COMPLETED
+        from_date_str = request.GET.get('from_date')
+        to_date_str = request.GET.get('to_date')
+
+
+        queryset = Payment.objects.filter(
+            skating_status=SessionStatus.FINISHED,
+            status=PaymentStatus.COMPLETED
         )
 
-        if from_date:
-            finished_skates = finished_skates.filter(created_at__gte=from_date)
-        if to_date:
-            finished_skates = finished_skates.filter(created_at__lte=to_date)
 
-        main_stats= finished_skates.aggregate(
+        if from_date_str:
+            queryset = queryset.filter(created_at__date__gte=from_date_str)
+        if to_date_str:
+            queryset = queryset.filter(created_at__date__lte=to_date_str)
+
+
+        report = []
+        for p in queryset.select_related('user').order_by('-created_at'):
+            category = "Сотрудник" if p.is_employee else "Обычный клиент"
+            payment_datetime = p.created_at.strftime("%d.%m.%Y %H:%M")
+
+            report.append({
+                "id": p.id,
+                "talon_number": p.ticket_number or "—",
+                "category": category,
+                "payment_datetime": payment_datetime,
+                "adults": p.amount_adult,
+                "children": p.amount_child,
+                "total_amount": float(p.total_amount)
+            })
+
+
+        main_stats = queryset.aggregate(
             total_sessions=Count('id'),
             total_revenue=Sum('total_amount'),
-            average_session_price = Avg('total_amount'),
+            average_price=Avg('total_amount'),
             total_hours=Sum('hours'),
-            total_skaters =Sum('amount_adult')+Sum('amount_child'),
-            total_skate_rentals= Sum('skate_rental'),
-            instructor_sessions=Count('id',filter=models.Q(instructor_service=True))
-            )
-
-        daily_stats= finished_skates.annotate(
-            report_date= TruncDate('created_at'),
-            ).values('report_date').annotate(
-            sessions= Count('id'),
-            revenue= Sum('total_amount'),
-            avarage_price= Avg('total_amount')
-            )
-
-        cashier_stats = finished_skates.values(
-            'user__id', 'user__first_name', 'user__last_name'
-            ).annotate(
-            sessions = Count('id'),
-            revenue= Sum('total_amount'),
-            ).order_by('-revenue')
+            total_skaters=Sum('amount_adult') + Sum('amount_child'),
+            total_skate_rentals=Sum('skate_rental'),
+            instructor_sessions=Count('id', filter=models.Q(instructor_service=True))
+        )
 
         return Response({
-            'period':{
-                'from_date': from_date,
-                'to_date': to_date
-                },
-                'summary': main_stats,
-                'daily_breakdown': list(daily_stats),
-                'cashier_perfomance':list(cashier_stats),
-            })
-            
+            "period": {
+                "from_date": from_date_str,
+                "to_date": to_date_str
+            },
+            "total_payments": len(report),
+            "report": report  # ← вот это и будет твой список!
+        })
+
     
     @swagger_auto_schema(
         operation_description="Отчет за последнюю неделю",
@@ -531,8 +595,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'], url_path='weekly-report')
     def get_weekly_report(self, request):
-        """Отчет за последнюю неделю"""
-        return self._auto_generate_report(7,'Неделя')
+        request.GET = request.GET.copy()
+        request.GET['days'] = '7'
+        return self._auto_generate_report(request)
     
     @swagger_auto_schema(
         operation_description="Отчет за последний месяц",
@@ -541,8 +606,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'], url_path='monthly-report')
     def get_monthly_report(self, request):
-        """Отчет за последний месяц"""
-        return self._auto_generate_report(30,'Месяц')
+        request.GET = request.GET.copy()
+        request.GET['days'] = '30'
+        return self._auto_generate_report(request)
     
     @swagger_auto_schema(
         operation_description="Отчет за последний год",
@@ -551,53 +617,40 @@ class PaymentViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=['get'], url_path='yearly-report')
     def get_yearly_report(self, request):
-        """Отчет за последний год""" 
-        return self._auto_generate_report(365,'Год')
-        
-    
+        request.GET = request.GET.copy()
+        request.GET['days'] = '365'
+        return self._auto_generate_report(request)
 
-    def _auto_generate_report(self,days_back, period_name):
-        if self.request.user.role != Role.ADMIN:
-            return Response ({'error': 'Доступно только администратором'}, status= status.HTTP_403_FORBIDDEN)
-        
-        
-        
+    def _auto_generate_report(self, request):
+        if request.user.role != Role.ADMIN:
+            return Response({'error': 'Доступно только администратором'}, status=HTTP_403_FORBIDDEN)
+
+        days_back = int(request.GET.get('days', 7))
         today = timezone.now().date()
         from_date = today - timezone.timedelta(days=days_back)
 
-        finished_skates = Payment.objects.filter(
-            skating_status = SessionStatus.FINISHED,
-            status = PaymentStatus.COMPLETED,
-            created_at__gte= from_date,
-            created_at__lte = today
-        )
+        payments = Payment.objects.filter(
+            skating_status=SessionStatus.FINISHED,
+            status=PaymentStatus.COMPLETED,
+            created_at__date__gte=from_date,
+            created_at__date__lte=today
+        ).order_by('-created_at')
 
-        main_stats= finished_skates.aggregate(
-            total_sessions=Count('id'),
-            total_revenue=Sum('total_amount'),
-            average_session_price = Avg('total_amount'),
-            total_hours=Sum('hours'),
-            total_skaters =Sum('amount_adult')+Sum('amount_child'),
-            total_skate_rentals= Sum('skate_rental'),
-            instructor_sessions=Count('id',filter=models.Q(instructor_service=True))
-            )
+        report = []
+        for p in payments:
+            category = "Сотрудник" if p.is_employee else "Обычный клиент"
+            payment_datetime = p.created_at.strftime("%d.%m.%Y %H:%M")
 
+            report.append({
+                "talon_number": p.ticket_number or "—",
+                "category": category,
+                "payment_datetime": payment_datetime,  # ← дата и время оплаты
+                "adults": p.amount_adult,
+                "children": p.amount_child,
+                "total_amount": float(p.total_amount)
+            })
 
-        cashier_stats = finished_skates.values(
-            'user__id', 'user__first_name', 'user__last_name'
-            ).annotate(
-            session = Count('id'),
-            revenue= Sum('total_amount'),
-            ).order_by('-revenue')
-
-        return Response({
-            'period':{
-                'from_date': from_date,
-                'to_date': today
-                },
-                'summary': main_stats,
-                'cashier_perfomance':list(cashier_stats)
-            })       
+        return Response(report)
     
     @swagger_auto_schema(
     operation_summary="Обновить платёж по ID",

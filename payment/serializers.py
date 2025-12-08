@@ -144,3 +144,15 @@ class OperatorSerializerWaiting(serializers.ModelSerializer):
     class Meta:
         model = Payment
         fields = ['id', 'ticket_number', 'amount_adult', 'amount_child', 'hours', 'skating_status']
+
+
+class SessionSerializerForReport(serializers.ModelSerializer):
+    start_time = serializers.DateTimeField(source='session.start_time', read_only=True)
+    end_time = serializers.DateTimeField(source='session.end_time', read_only=True)
+    class Meta:
+        model= Payment
+        fields =[
+            'id', 'ticket_number', 'is_employee', 'employee_name', 'department_name', 'position_name', 'instructor_service',
+            'skate_rental', 'amount_adult', 'amount_child', 'hours', 'created_at',
+            'start_time', 'end_time', 'skating_status', 'total_amount',
+        ]
