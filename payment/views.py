@@ -77,20 +77,6 @@ class PaymentViewSet(viewsets.ModelViewSet):
             serializer = OperatorSerializerWaiting(payment)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
-    @swagger_auto_schema(
-        operation_summary='Получение сеанса по ID для отчета',
-        operation_description='Возвращает данные платежа для отчета'
-    )
-    @action(detail=True, methods=['get'], url_path='get-session-for-report')
-    def get_session_by_id_for_report(self, request, pk=None):
-
-        try:
-            payment = Payment.objects.select_related('session').get(id=pk)
-        except Payment.DoesNotExist:
-            return Response({'error': 'Платеж не найден'}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = SessionSerializerForReport(payment)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -531,6 +517,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         ]
     )
     @action(detail=False, methods=['get'], url_path='session-report')
+    @action(detail=False, methods=['get'], url_path='session-report')
     def get_all_finished_payment(self, request):
         if request.user.role != Role.ADMIN:
             return Response({'error': 'Доступно только администратором'}, status=status.HTTP_403_FORBIDDEN)
@@ -542,7 +529,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
         queryset = Payment.objects.filter(
             skating_status=SessionStatus.FINISHED,
             status=PaymentStatus.COMPLETED
-        )
+        ).select_related('user', 'session')
 
 
         if from_date_str:
@@ -550,42 +537,53 @@ class PaymentViewSet(viewsets.ModelViewSet):
         if to_date_str:
             queryset = queryset.filter(created_at__date__lte=to_date_str)
 
-
         report = []
-        for p in queryset.select_related('user').order_by('-created_at'):
+        for p in queryset:
+
             category = "Сотрудник" if p.is_employee else "Обычный клиент"
-            payment_datetime = p.created_at.strftime("%d.%m.%Y %H:%M")
+
+
+            cashier = f"{p.user.first_name} {p.user.last_name}".strip()
+            if not cashier:
+                cashier = "Кассир не указан"
+
+
+            payment_date = p.created_at.strftime("%d.%m.%y")
+            payment_time = p.created_at.strftime("%H:%M")
+
+
+            start_date = start_time = end_date = end_time = ""
+            if p.session:
+                if p.session.start_time:
+                    start_date = p.session.start_time.strftime("%d.%m.%y")
+                    start_time = p.session.start_time.strftime("%H:%M")
+                if p.session.end_time:
+                    end_date = p.session.end_time.strftime("%d.%m.%y")
+                    end_time = p.session.end_time.strftime("%H:%M")
 
             report.append({
-                "id": p.id,
-                "talon_number": p.ticket_number or "—",
+                "payment_id": p.id,
+                "ticket": p.ticket_number or "—",
                 "category": category,
-                "payment_datetime": payment_datetime,
+                "fullName": p.employee_name or "",
+                "branch": p.department_name or "",
+                "position": p.position_name or "",
+                "instructor": p.instructor_service,
+                "skates_rental": p.skate_rental,
                 "adults": p.amount_adult,
                 "children": p.amount_child,
-                "total_amount": float(p.total_amount)
+                "hour": p.hours,
+                "payment_date": payment_date,
+                "payment_time": payment_time,
+                "start_date": start_date,
+                "start_time": start_time,
+                "end_date": end_date,
+                "end_time": end_time,
+                "total": float(p.total_amount),
+                "cashier": cashier
             })
 
-
-        main_stats = queryset.aggregate(
-            total_sessions=Count('id'),
-            total_revenue=Sum('total_amount'),
-            average_price=Avg('total_amount'),
-            total_hours=Sum('hours'),
-            total_skaters=Sum('amount_adult') + Sum('amount_child'),
-            total_skate_rentals=Sum('skate_rental'),
-            instructor_sessions=Count('id', filter=models.Q(instructor_service=True))
-        )
-
-        return Response({
-            "period": {
-                "from_date": from_date_str,
-                "to_date": to_date_str
-            },
-            "total_payments": len(report),
-            "report": report  # ← вот это и будет твой список!
-        })
-
+        return Response(report)
     
     @swagger_auto_schema(
         operation_description="Отчет за последнюю неделю",
@@ -609,21 +607,11 @@ class PaymentViewSet(viewsets.ModelViewSet):
         request.GET = request.GET.copy()
         request.GET['days'] = '30'
         return self._auto_generate_report(request)
-    
-    @swagger_auto_schema(
-        operation_description="Отчет за последний год",
-        operation_summary='Получение отчета за последний год',
-        responses={200: openapi.Response('Годовой отчет')}
-    )
-    @action(detail=False, methods=['get'], url_path='yearly-report')
-    def get_yearly_report(self, request):
-        request.GET = request.GET.copy()
-        request.GET['days'] = '365'
-        return self._auto_generate_report(request)
+
 
     def _auto_generate_report(self, request):
         if request.user.role != Role.ADMIN:
-            return Response({'error': 'Доступно только администратором'}, status=HTTP_403_FORBIDDEN)
+            return Response({'error': 'Доступно только администратором'}, status=status.HTTP_403_FORBIDDEN)
 
         days_back = int(request.GET.get('days', 7))
         today = timezone.now().date()
@@ -634,20 +622,49 @@ class PaymentViewSet(viewsets.ModelViewSet):
             status=PaymentStatus.COMPLETED,
             created_at__date__gte=from_date,
             created_at__date__lte=today
-        ).order_by('-created_at')
+        ).select_related('user', 'session').order_by('-created_at')
 
         report = []
         for p in payments:
             category = "Сотрудник" if p.is_employee else "Обычный клиент"
-            payment_datetime = p.created_at.strftime("%d.%m.%Y %H:%M")
+
+
+            cashier = f"{p.user.first_name} {p.user.last_name}".strip() or "Не указан"
+
+
+            payment_date = p.created_at.strftime("%d.%m.%y")
+            payment_time = p.created_at.strftime("%H:%M")
+
+
+            start_date = start_time = end_date = end_time = ""
+            if p.session:
+                if p.session.start_time:
+                    start_date = p.session.start_time.strftime("%d.%m.%y")
+                    start_time = p.session.start_time.strftime("%H:%M")
+                if p.session.end_time:
+                    end_date = p.session.end_time.strftime("%d.%m.%y")
+                    end_time = p.session.end_time.strftime("%H:%M")
 
             report.append({
-                "talon_number": p.ticket_number or "—",
+                "payment_id": p.id,
+                "ticket": p.ticket_number or "—",
                 "category": category,
-                "payment_datetime": payment_datetime,  # ← дата и время оплаты
+                "fullName": p.employee_name or "",
+                "branch": p.department_name or "",
+                "position": p.position_name or "",
+                "instructor": p.instructor_service,
+                "skates_rental": p.skate_rental,
                 "adults": p.amount_adult,
                 "children": p.amount_child,
-                "total_amount": float(p.total_amount)
+                "hour": p.hours,
+                "payment_date": payment_date,
+                "payment_time": payment_time,
+                "start_date": start_date,
+                "start_time": start_time,
+                "end_date": end_date,
+                "end_time": end_time,
+                "total": float(p.total_amount),
+                "cashier": cashier
             })
 
         return Response(report)

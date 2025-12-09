@@ -153,6 +153,35 @@ def login_view(request):
 
     return response
 
+@api_view(['POST'])
+@permission_classes([AllowAny])  # можно и IsAuthenticated — как хочешь
+def logout_view(request):
+
+    response = Response({
+        'isAuthorized': False,
+        'message': 'Успешно вышли из системы'
+    }, status=status.HTTP_200_OK)
+
+
+    response.delete_cookie(
+        key='refresh_token',
+        path='/',
+        domain=None
+    )
+
+    try:
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+    except Exception:
+        pass
+
+    return response
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
