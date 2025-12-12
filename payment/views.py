@@ -785,6 +785,7 @@ class PaymentViewSet(viewsets.ModelViewSet):
             "department_name": latest_payment.department_name or "",
             "position_name": latest_payment.position_name or "",
             "ticket_number": latest_payment.ticket_number,
+            "created_at": latest_payment.created_at,
             
             "hours": {
                 "value": amounts['hours'],
